@@ -1,12 +1,14 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Products from "./assets/pages/Products";
+import Login from "./assets/pages/Login";
+import ProductsList from "./assets/pages/ProductsList";
+
 
 function App() {
   return (
     <Router>
       <Routes>
-
-        <Route path="/products" element={<Products />} />
+        <Route path="/" element={<Login />} />
+        <Route path="/productsList" element={<ProductsList />} />
       </Routes>
     </Router>
   );
