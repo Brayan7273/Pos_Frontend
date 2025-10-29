@@ -17,7 +17,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { mockProducts } from '../data/mockProducts.js';
+import { mockProducts } from '../data/mockProducts';
 
 export default function Products() {
   const [products, setProducts] = useState([]);
