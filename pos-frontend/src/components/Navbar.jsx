@@ -18,9 +18,10 @@ export default function Navbar() {
     { text: 'Productos', icon: <InventoryIcon />, path: '/products' },
     { text: 'Ventas', icon: <ShoppingCartIcon />, path: '/sales' },
     { text: 'Proveedores', icon: <LocalShippingIcon />, path: '/Proveedor' },
-    { text: 'Reportes', icon: <AssessmentIcon />, path: '/Reportes' }
-
-
+    { text: 'Reportes', icon: <AssessmentIcon />, path: '/Reportes' },
+    { text: 'Dashboard de Ventas', icon: <AssessmentIcon />, path: '/SalesDashboard' },
+    { text: 'Sistema de Recomendaciones', icon: <AssessmentIcon />, path: '/RecommendationSystem' },
+    { text: 'Pronóstico de Demanda', icon: <AssessmentIcon />, path: '/demand-forecast' }
   ];
 
   const toggleDrawer = () => {
