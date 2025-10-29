@@ -15,12 +15,27 @@ import {
   TableHead,
   TableRow,
   Paper,
-  IconButton,
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import { mockProducts } from '../data/mockProducts';
+  InputAdornment,
+  Grid,
+  Collapse,
+  Avatar,
+  Alert,
+  CircularProgress,
+  Container
+} from "@mui/material"
+import {
+  Search,
+  Add,
+  Edit,
+  Delete,
+  Inventory,
+  Warning,
+  FilterList,
+  Download,
+  Upload,
+  BarChart,
+  Visibility
+} from "@mui/icons-material"
 
 export default function ProductsList() {
   const [searchTerm, setSearchTerm] = useState("")
