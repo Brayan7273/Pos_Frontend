@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
+import ProductForm from './pages/ProductForm';
 import Sales from './pages/Sales';
 import Proveedor from './pages/Proveedor';
 import Reportes from './pages/Reportes';
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/SalesDashboard" element={<SalesDashboard />} />
         <Route path="/RecommendationSystem" element={<RecommendationSystem />} />
         <Route path="/demand-forecast" element={<DemandForecast />} />
+        <Route path="/products/new" element={<ProductForm />} />
       </Routes>
     </>
   );
