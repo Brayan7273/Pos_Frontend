@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   Box,
   Card,
@@ -38,6 +39,7 @@ import {
 } from "@mui/icons-material"
 
 export default function ProductsList() {
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [showFilters, setShowFilters] = useState(false)
@@ -127,6 +129,21 @@ export default function ProductsList() {
   const lowStockProducts = products.filter(p => p.stock < p.minStock).length
   const totalInventoryValue = products.reduce((acc, p) => acc + (p.price * p.stock), 0)
 
+  // Función para navegar al formulario de nuevo producto
+  const handleNewProduct = () => {
+    navigate("/products/new")
+  }
+
+  // Función para navegar al formulario de edición
+  const handleEditProduct = (product) => {
+    navigate("/products/new", { state: { product } })
+  }
+
+  // Función para ver detalles del producto
+  const handleViewProduct = (product) => {
+    navigate("/products/new", { state: { product } })
+  }
+
   const handleDelete = async (id) => {
     if (!window.confirm("¿Estás seguro de eliminar este producto?")) return
     setProducts(products.filter(p => p.id !== id))
@@ -196,6 +213,7 @@ export default function ProductsList() {
           <Button
             variant="contained"
             startIcon={<Add />}
+            onClick={handleNewProduct}
             sx={{
               bgcolor: "#2563EB",
               "&:hover": { bgcolor: "#1D4ED8" },
@@ -509,10 +527,18 @@ export default function ProductsList() {
                     </TableCell>
                     <TableCell align="right" sx={{ borderBottom: "1px solid #1E293B" }}>
                       <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.5 }}>
-                        <IconButton size="small" sx={{ color: "#3B82F6" }}>
+                        <IconButton 
+                          size="small" 
+                          sx={{ color: "#3B82F6" }}
+                          onClick={() => handleViewProduct(product)}
+                        >
                           <Visibility fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" sx={{ color: "#10B981" }}>
+                        <IconButton 
+                          size="small" 
+                          sx={{ color: "#10B981" }}
+                          onClick={() => handleEditProduct(product)}
+                        >
                           <Edit fontSize="small" />
                         </IconButton>
                         <IconButton
@@ -539,6 +565,20 @@ export default function ProductsList() {
               <Typography variant="body2" sx={{ color: "#6B7280" }}>
                 Comienza agregando tu primer producto
               </Typography>
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={handleNewProduct}
+                sx={{
+                  mt: 2,
+                  bgcolor: "#2563EB",
+                  "&:hover": { bgcolor: "#1D4ED8" },
+                  fontWeight: 600,
+                  textTransform: "none"
+                }}
+              >
+                Agregar Primer Producto
+              </Button>
             </Box>
           )}
         </Card>
