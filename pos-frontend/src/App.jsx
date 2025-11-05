@@ -1,7 +1,7 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
+import Home from './pages/Home';
 import Products from './pages/Products';
 import ProductForm from './pages/ProductForm';
 import Sales from './pages/Sales';
@@ -12,12 +12,17 @@ import RecommendationSystem from './pages/RecommendationSystem';
 import DemandForecast from './pages/DemandForecast';
 
 export default function App() {
+  const location = useLocation();
+
+  // rutas donde NO se mostrará el navbar
+  const hideNavbarRoutes = ['/'];
+
   return (
     <>
-      <Navbar />
+      {!hideNavbarRoutes.includes(location.pathname) && <Navbar />}
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/home" element={<Home />} />
         <Route path="/products" element={<Products />} />
         <Route path="/sales" element={<Sales />} />
         <Route path="/Proveedor" element={<Proveedor />} />

@@ -14,7 +14,7 @@ export default function Navbar() {
   const drawerWidth = 240;
 
   const menuItems = [
-    { text: 'Inicio', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: 'Inicio', icon: <DashboardIcon />, path: '/home' },
     { text: 'Productos', icon: <InventoryIcon />, path: '/products' },
     { text: 'Ventas', icon: <ShoppingCartIcon />, path: '/sales' },
     { text: 'Proveedores', icon: <LocalShippingIcon />, path: '/Proveedor' },
