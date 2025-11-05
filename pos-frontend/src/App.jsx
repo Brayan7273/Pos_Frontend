@@ -6,6 +6,7 @@ import Products from './pages/Products';
 import ProductForm from './pages/ProductForm';
 import Sales from './pages/Sales';
 import Proveedor from './pages/Proveedor';
+import CheckoutPage from './pages/CheckoutPage';
 import Reportes from './pages/Reportes';
 import SalesDashboard from './pages/SalesDashboard';
 import RecommendationSystem from './pages/RecommendationSystem';
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/RecommendationSystem" element={<RecommendationSystem />} />
         <Route path="/demand-forecast" element={<DemandForecast />} />
         <Route path="/products/new" element={<ProductForm />} />
+        <Route path="/checkoutPage" element={<CheckoutPage/>}/>
       </Routes>
     </>
   );
