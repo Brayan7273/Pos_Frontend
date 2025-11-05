@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useNavigate, useLocation } from "react-router-dom"
 import {
   Box,
   Card,
@@ -22,10 +23,17 @@ import {
   Inventory,
   AttachMoney,
   BarChart,
-  Category
+  Category,
+  Add
 } from "@mui/icons-material"
 
 export default function ProductForm() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  
+  // Obtener el producto pasado por navigate state (si existe)
+  const productToEdit = location.state?.product
+  
   const [formData, setFormData] = useState({
     name: "",
     sku: "",
@@ -50,6 +58,38 @@ export default function ProductForm() {
 
   const categories = ["Bebidas", "Panadería", "Lácteos", "Granos", "Limpieza", "Snacks", "Abarrotes"]
   const units = ["pz", "kg", "lt", "m", "caja", "paquete"]
+
+  // Cargar datos del producto si estamos en modo edición
+  useEffect(() => {
+    if (productToEdit) {
+      setFormData({
+        name: productToEdit.name || "",
+        sku: productToEdit.sku || "",
+        barcode: productToEdit.barcode || "",
+        category: productToEdit.category || "",
+        brand: productToEdit.brand || "",
+        description: productToEdit.description || "",
+        costPrice: productToEdit.costPrice?.toString() || "",
+        salePrice: productToEdit.price?.toString() || productToEdit.salePrice?.toString() || "",
+        stock: productToEdit.stock?.toString() || "",
+        minStock: productToEdit.minStock?.toString() || "",
+        maxStock: productToEdit.maxStock?.toString() || "",
+        unit: productToEdit.unit || "pz",
+        taxRate: productToEdit.taxRate?.toString() || "16",
+        supplier: productToEdit.supplier || "",
+        location: productToEdit.location || "",
+      })
+      
+      // Si el producto tiene imagen, cargarla
+      if (productToEdit.image) {
+        setImages([{
+          id: 'existing-image',
+          url: productToEdit.image,
+          isExisting: true
+        }])
+      }
+    }
+  }, [productToEdit])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -88,14 +128,60 @@ export default function ProductForm() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = () => {
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      sku: "",
+      barcode: "",
+      category: "",
+      brand: "",
+      description: "",
+      costPrice: "",
+      salePrice: "",
+      stock: "",
+      minStock: "",
+      maxStock: "",
+      unit: "pz",
+      taxRate: "16",
+      supplier: "",
+      location: "",
+    })
+    setImages([])
+    setErrors({})
+  }
+
+  const handleSubmit = (action = "save") => {
     if (!validateForm()) return
 
     setLoading(true)
+    
+    // Simular guardado
     setTimeout(() => {
-      alert("Producto guardado exitosamente")
-      setLoading(false)
+      if (productToEdit) {
+        alert(`Producto "${formData.name}" actualizado exitosamente`)
+        setLoading(false)
+        navigate("/products")
+      } else {
+        alert(`Producto "${formData.name}" creado exitosamente`)
+        setLoading(false)
+        
+        if (action === "saveAndNew") {
+          // Limpiar formulario para nuevo producto
+          resetForm()
+        } else {
+          // Redirigir de vuelta a la lista
+          navigate("/products")
+        }
+      }
     }, 1000)
+  }
+
+  const handleSaveAndNew = () => {
+    handleSubmit("saveAndNew")
+  }
+
+  const handleBack = () => {
+    navigate("/products")
   }
 
   const calculateMargin = () => {
@@ -104,6 +190,8 @@ export default function ProductForm() {
     if (cost === 0 || sale === 0) return "0.00"
     return (((sale - cost) / sale) * 100).toFixed(2)
   }
+
+  const isEditMode = Boolean(productToEdit)
 
   return (
     <Box
@@ -118,6 +206,7 @@ export default function ProductForm() {
         {/* Header */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
           <IconButton
+            onClick={handleBack}
             sx={{
               border: "1px solid #334155",
               color: "#D1D5DB",
@@ -129,13 +218,28 @@ export default function ProductForm() {
           </IconButton>
           <Box>
             <Typography variant="h4" sx={{ color: "#FFFFFF", fontWeight: "bold" }}>
-              Nuevo Producto
+              {isEditMode ? "Editar Producto" : "Nuevo Producto"}
             </Typography>
             <Typography variant="body2" sx={{ color: "#9CA3AF" }}>
-              Completa la información del producto
+              {isEditMode ? `Editando: ${productToEdit.name}` : "Completa la información del producto"}
             </Typography>
           </Box>
         </Box>
+
+        {/* Alert de modo edición */}
+        {isEditMode && (
+          <Alert 
+            severity="info" 
+            sx={{ 
+              mb: 3,
+              bgcolor: "rgba(59, 130, 246, 0.2)",
+              color: "#60A5FA",
+              border: "1px solid rgba(59, 130, 246, 0.5)"
+            }}
+          >
+            Estás editando el producto: <strong>{productToEdit.name}</strong> (SKU: {productToEdit.sku})
+          </Alert>
+        )}
 
         <Grid container spacing={3}>
           {/* Columna Principal */}
@@ -755,26 +859,64 @@ export default function ProductForm() {
                 </CardContent>
               </Card>
 
-              {/* Botón Guardar */}
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                onClick={handleSubmit}
-                disabled={loading}
-                startIcon={<Save />}
-                sx={{
-                  bgcolor: "#2563EB",
-                  py: 1.5,
-                  fontWeight: 600,
-                  fontSize: 16,
-                  textTransform: "none",
-                  "&:hover": { bgcolor: "#1D4ED8" },
-                  "&:disabled": { bgcolor: "#475569" }
-                }}
-              >
-                {loading ? "Guardando..." : "Guardar Producto"}
-              </Button>
+              {/* Botones de Acción */}
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {/* Botón Guardar */}
+                <Button
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  onClick={() => handleSubmit("save")}
+                  disabled={loading}
+                  startIcon={<Save />}
+                  sx={{
+                    bgcolor: "#2563EB",
+                    py: 1.5,
+                    fontWeight: 600,
+                    fontSize: 16,
+                    textTransform: "none",
+                    "&:hover": { bgcolor: "#1D4ED8" },
+                    "&:disabled": { bgcolor: "#475569" }
+                  }}
+                >
+                  {loading 
+                    ? "Guardando..." 
+                    : isEditMode 
+                      ? "Actualizar Producto" 
+                      : "Guardar Producto"
+                  }
+                </Button>
+
+                {/* Botón Agregar y Registrar Otro (solo en modo creación) */}
+                {!isEditMode && (
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    size="large"
+                    onClick={handleSaveAndNew}
+                    disabled={loading}
+                    startIcon={<Add />}
+                    sx={{
+                      borderColor: "#10B981",
+                      color: "#10B981",
+                      py: 1.5,
+                      fontWeight: 600,
+                      fontSize: 16,
+                      textTransform: "none",
+                      "&:hover": {
+                        borderColor: "#059669",
+                        bgcolor: "rgba(16, 185, 129, 0.1)"
+                      },
+                      "&:disabled": {
+                        borderColor: "#475569",
+                        color: "#475569"
+                      }
+                    }}
+                  >
+                    {loading ? "Guardando..." : "Agregar y Registrar Otro"}
+                  </Button>
+                )}
+              </Box>
             </Box>
           </Grid>
         </Grid>
