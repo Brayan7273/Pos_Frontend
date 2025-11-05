@@ -4,18 +4,21 @@ import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
-  const [form, setForm] = useState({ username: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const navigate = useNavigate();
 
   const handleSubmit = async () => {
     try {
-      const res = await api.post('/login', form);
-      if (res.data.success) {
+      const res = await api.post('/auth/login', form); // 🔹 ojo con el prefijo /auth
+      if (res.data && res.status === 200) {
+        // puedes guardar el token si el backend lo devuelve
+        localStorage.setItem('token', res.data.token);
         navigate('/dashboard');
       } else {
         alert('Credenciales incorrectas');
       }
-    } catch {
+    } catch (error) {
+      console.error(error);
       alert('Error en el servidor');
     }
   };
@@ -26,10 +29,10 @@ export default function Login() {
         Iniciar Sesión
       </Typography>
       <TextField
-        label="Usuario"
+        label="Correo electrónico"
         fullWidth
         margin="normal"
-        onChange={(e) => setForm({ ...form, username: e.target.value })}
+        onChange={(e) => setForm({ ...form, email: e.target.value })}
       />
       <TextField
         label="Contraseña"
