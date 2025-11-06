@@ -93,7 +93,7 @@ export default function Navbar() {
               }
               localStorage.removeItem('token');
               setLogoutOpen(false);
-              navigate('/login');
+              navigate('/');
             }}
           >
             Cerrar sesión
