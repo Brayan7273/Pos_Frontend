@@ -85,7 +85,7 @@ export default function Navbar() {
               const token = localStorage.getItem('token');
               try {
                 if (token) {
-                  await api.post('/logout', {}, { headers: { Authorization: `Bearer ${token}` } });
+                  await api.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${token}` } });
                 }
               } catch (err) {
                 // We still clear client-side auth even if backend call fails

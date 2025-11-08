@@ -37,6 +37,7 @@ import {
   BarChart,
   Visibility
 } from "@mui/icons-material"
+import api from '../services/api'; // Importar tu configuración de axios
 
 export default function ProductsList() {
   const navigate = useNavigate()
@@ -50,84 +51,54 @@ export default function ProductsList() {
 
   useEffect(() => {
     fetchProducts()
-    fetchCategories()
   }, [])
 
   const fetchProducts = async () => {
     try {
       setLoading(true)
-      // Simulated data for demo
-      setTimeout(() => {
-        const mockProducts = [
-          {
-            id: 1,
-            name: "Laptop HP ProBook",
-            sku: "LAP-001",
-            category: "Electrónica",
-            price: 15999.99,
-            stock: 5,
-            minStock: 10,
-            image: null
-          },
-          {
-            id: 2,
-            name: "Mouse Logitech MX",
-            sku: "MOU-002",
-            category: "Accesorios",
-            price: 1299.99,
-            stock: 25,
-            minStock: 15,
-            image: null
-          },
-          {
-            id: 3,
-            name: "Teclado Mecánico RGB",
-            sku: "KEY-003",
-            category: "Accesorios",
-            price: 2499.99,
-            stock: 8,
-            minStock: 10,
-            image: null
-          },
-          {
-            id: 4,
-            name: "Monitor Dell 27\"",
-            sku: "MON-004",
-            category: "Electrónica",
-            price: 8999.99,
-            stock: 3,
-            minStock: 5,
-            image: null
-          }
-        ]
-        setProducts(mockProducts)
-        setLoading(false)
-      }, 1000)
+      setError("")
+      const response = await api.get("/products/")
+      setProducts(response.data)
     } catch (err) {
-      setError("Error de conexión con el servidor")
+      console.error("Error fetching products:", err)
+      setError("Error de conexión con el servidor: " + (err.response?.data?.message || err.message))
+      // Datos de ejemplo para desarrollo
+      setProducts(getMockProducts())
+    } finally {
       setLoading(false)
     }
   }
 
-  const fetchCategories = async () => {
+  // Actualizar categorías cuando los productos cambien
+  useEffect(() => {
+    if (products.length > 0) {
+      const uniqueCategories = [...new Set(products.map(p => p.Category))].filter(Boolean)
+      setCategories(["all", ...uniqueCategories])
+    }
+  }, [products])
+
+  const deleteProduct = async (productId) => {
     try {
-      setTimeout(() => {
-        setCategories(["all", "Electrónica", "Accesorios", "Oficina"])
-      }, 500)
+      await api.delete(`/products/${productId}`)
+      // Actualizar lista localmente
+      setProducts(products.filter(p => p.Product_ID !== productId))
     } catch (err) {
-      console.error("Error al cargar categorías:", err)
+      console.error("Error deleting product:", err)
+      setError("Error al eliminar el producto: " + (err.response?.data?.message || err.message))
+      // Fallback: eliminar localmente para mejor UX
+      setProducts(products.filter(p => p.Product_ID !== productId))
     }
   }
 
   const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === "all" || p.category === selectedCategory
+    const matchesSearch = p.Name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         p.Code?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCategory = selectedCategory === "all" || p.Category === selectedCategory
     return matchesSearch && matchesCategory
   })
 
-  const lowStockProducts = products.filter(p => p.stock < p.minStock).length
-  const totalInventoryValue = products.reduce((acc, p) => acc + (p.price * p.stock), 0)
+  const lowStockProducts = products.filter(p => (p.Current_Stock || 0) < (p.Minimum_Stock || 0)).length
+  const totalInventoryValue = products.reduce((acc, p) => acc + ((p.Price || 0) * (p.Current_Stock || 0)), 0)
 
   // Función para navegar al formulario de nuevo producto
   const handleNewProduct = () => {
@@ -141,12 +112,12 @@ export default function ProductsList() {
 
   // Función para ver detalles del producto
   const handleViewProduct = (product) => {
-    navigate("/products/new", { state: { product } })
+    navigate(`/products/${product.Product_ID}`)
   }
 
   const handleDelete = async (id) => {
     if (!window.confirm("¿Estás seguro de eliminar este producto?")) return
-    setProducts(products.filter(p => p.id !== id))
+    await deleteProduct(id)
   }
 
   const handleExport = () => {
@@ -159,6 +130,32 @@ export default function ProductsList() {
       alert(`Importando: ${file.name}`)
     }
   }
+
+  // Datos mock para desarrollo
+  const getMockProducts = () => [
+    {
+      Product_ID: 1,
+      Name: "Laptop HP ProBook",
+      Code: "LAP-001",
+      Category: "Electrónica",
+      Price: 15999.99,
+      Current_Stock: 5,
+      Minimum_Stock: 10,
+      Description: "Laptop empresarial",
+      Unit: "pz"
+    },
+    {
+      Product_ID: 2,
+      Name: "Mouse Logitech MX",
+      Code: "MOU-002",
+      Category: "Accesorios",
+      Price: 1299.99,
+      Current_Stock: 25,
+      Minimum_Stock: 15,
+      Description: "Mouse ergonómico",
+      Unit: "pz"
+    }
+  ]
 
   if (loading) {
     return (
@@ -211,7 +208,6 @@ export default function ProductsList() {
             </Typography>
           </Box>
           <Button
-            
             variant="contained"
             startIcon={<Add />}
             onClick={handleNewProduct}
@@ -229,7 +225,7 @@ export default function ProductsList() {
 
         {/* Error Message */}
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError("")}>
             {error}
           </Alert>
         )}
@@ -346,7 +342,7 @@ export default function ProductsList() {
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <TextField
                 fullWidth
-                placeholder="Buscar por nombre o SKU..."
+                placeholder="Buscar por nombre o código..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 InputProps={{
@@ -369,10 +365,10 @@ export default function ProductsList() {
                   startIcon={<FilterList />}
                   onClick={() => setShowFilters(!showFilters)}
                   sx={{
-                    bgcolor: "#000000",
+                    bgcolor: "#1E293B",
                     borderColor: "#334155",
                     color: "#D1D5DB",
-                    "&:hover": { bgcolor: "#1E293B", borderColor: "#334155" },
+                    "&:hover": { bgcolor: "#334155", borderColor: "#475569" },
                     textTransform: "none"
                   }}
                 >
@@ -383,10 +379,10 @@ export default function ProductsList() {
                   startIcon={<Download />}
                   onClick={handleExport}
                   sx={{
-                    bgcolor: "#000000",
+                    bgcolor: "#1E293B",
                     borderColor: "#334155",
                     color: "#D1D5DB",
-                    "&:hover": { bgcolor: "#1E293B", borderColor: "#334155" },
+                    "&:hover": { bgcolor: "#334155", borderColor: "#475569" },
                     textTransform: "none"
                   }}
                 >
@@ -397,10 +393,10 @@ export default function ProductsList() {
                   component="label"
                   startIcon={<Upload />}
                   sx={{
-                    bgcolor: "#000000",
+                    bgcolor: "#1E293B",
                     borderColor: "#334155",
                     color: "#D1D5DB",
-                    "&:hover": { bgcolor: "#1E293B", borderColor: "#334155" },
+                    "&:hover": { bgcolor: "#334155", borderColor: "#475569" },
                     textTransform: "none"
                   }}
                 >
@@ -455,7 +451,7 @@ export default function ProductsList() {
                     Producto
                   </TableCell>
                   <TableCell sx={{ color: "#D1D5DB", fontWeight: 600, borderBottom: "1px solid #334155" }}>
-                    SKU
+                    Código
                   </TableCell>
                   <TableCell sx={{ color: "#D1D5DB", fontWeight: 600, borderBottom: "1px solid #334155" }}>
                     Categoría
@@ -474,7 +470,7 @@ export default function ProductsList() {
               <TableBody>
                 {filteredProducts.map((product) => (
                   <TableRow
-                    key={product.id}
+                    key={product.Product_ID}
                     sx={{
                       borderBottom: "1px solid #1E293B",
                       "&:hover": { bgcolor: "rgba(59, 130, 246, 0.05)" }
@@ -482,24 +478,27 @@ export default function ProductsList() {
                   >
                     <TableCell sx={{ borderBottom: "1px solid #1E293B" }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                        {product.image ? (
-                          <Avatar src={product.image} variant="rounded" sx={{ width: 40, height: 40 }} />
-                        ) : (
-                          <Avatar variant="rounded" sx={{ width: 40, height: 40, bgcolor: "#334155" }}>
-                            <Inventory sx={{ color: "#6B7280", fontSize: 20 }} />
-                          </Avatar>
-                        )}
-                        <Typography sx={{ color: "#FFFFFF", fontWeight: 500 }}>
-                          {product.name}
-                        </Typography>
+                        <Avatar variant="rounded" sx={{ width: 40, height: 40, bgcolor: "#334155" }}>
+                          <Inventory sx={{ color: "#6B7280", fontSize: 20 }} />
+                        </Avatar>
+                        <Box>
+                          <Typography sx={{ color: "#FFFFFF", fontWeight: 500 }}>
+                            {product.Name}
+                          </Typography>
+                          {product.Description && (
+                            <Typography variant="body2" sx={{ color: "#9CA3AF", fontSize: "0.75rem" }}>
+                              {product.Description}
+                            </Typography>
+                          )}
+                        </Box>
                       </Box>
                     </TableCell>
                     <TableCell sx={{ color: "#9CA3AF", borderBottom: "1px solid #1E293B" }}>
-                      {product.sku}
+                      {product.Code}
                     </TableCell>
                     <TableCell sx={{ borderBottom: "1px solid #1E293B" }}>
                       <Chip
-                        label={product.category}
+                        label={product.Category || "Sin categoría"}
                         size="small"
                         sx={{
                           bgcolor: "rgba(59, 130, 246, 0.2)",
@@ -509,19 +508,19 @@ export default function ProductsList() {
                       />
                     </TableCell>
                     <TableCell align="right" sx={{ color: "#10B981", fontWeight: 600, borderBottom: "1px solid #1E293B" }}>
-                      ${parseFloat(product.price).toFixed(2)}
+                      ${parseFloat(product.Price || 0).toFixed(2)}
                     </TableCell>
                     <TableCell align="right" sx={{ borderBottom: "1px solid #1E293B" }}>
                       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
                         <Typography
                           sx={{
                             fontWeight: 600,
-                            color: product.stock < product.minStock ? "#F59E0B" : "#FFFFFF"
+                            color: (product.Current_Stock || 0) < (product.Minimum_Stock || 0) ? "#F59E0B" : "#FFFFFF"
                           }}
                         >
-                          {product.stock}
+                          {product.Current_Stock || 0} {product.Unit || 'pz'}
                         </Typography>
-                        {product.stock < product.minStock && (
+                        {(product.Current_Stock || 0) < (product.Minimum_Stock || 0) && (
                           <Warning sx={{ color: "#F59E0B", fontSize: 16 }} />
                         )}
                       </Box>
@@ -544,7 +543,7 @@ export default function ProductsList() {
                         </IconButton>
                         <IconButton
                           size="small"
-                          onClick={() => handleDelete(product.id)}
+                          onClick={() => handleDelete(product.Product_ID)}
                           sx={{ color: "#EF4444" }}
                         >
                           <Delete fontSize="small" />
@@ -564,7 +563,9 @@ export default function ProductsList() {
                 No se encontraron productos
               </Typography>
               <Typography variant="body2" sx={{ color: "#6B7280" }}>
-                Comienza agregando tu primer producto
+                {searchTerm || selectedCategory !== "all" 
+                  ? "Intenta con otros términos de búsqueda" 
+                  : "Comienza agregando tu primer producto"}
               </Typography>
               <Button
                 variant="contained"
