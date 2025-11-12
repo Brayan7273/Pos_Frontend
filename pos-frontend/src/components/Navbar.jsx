@@ -68,35 +68,105 @@ export default function Navbar() {
         open={logoutOpen}
         onClose={() => setLogoutOpen(false)}
         aria-labelledby="logout-dialog-title"
+        PaperProps={{
+          sx: {
+            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+            borderRadius: 3,
+            border: '1px solid rgba(148,163,184,0.2)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            backdropFilter: 'blur(10px)',
+            minWidth: 400,
+          }
+        }}
       >
-        <DialogTitle id="logout-dialog-title">Cerrar sesión</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
+        <DialogTitle
+          id="logout-dialog-title"
+          sx={{
+            textAlign: 'center',
+            fontWeight: 'bold',
+            color: '#38bdf8',
+            fontSize: '1.5rem',
+            pb: 1,
+            background: 'rgba(30, 41, 59, 0.8)',
+          }}
+        >
+          Cerrar Sesión
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 3, pb: 2 }}>
+          <DialogContentText
+            sx={{
+              textAlign: 'center',
+              color: '#e2e8f0',
+              fontSize: '1rem',
+              lineHeight: 1.6,
+            }}
+          >
             ¿Estás seguro que deseas cerrar la sesión actual?
           </DialogContentText>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setLogoutOpen(false)}>Cancelar</Button>
+
+        <DialogActions sx={{
+          justifyContent: 'center',
+          gap: 2,
+          pb: 3,
+          px: 3
+        }}>
+          <Button
+            onClick={() => setLogoutOpen(false)}
+            variant="outlined"
+            sx={{
+              color: '#94a3b8',
+              borderColor: '#475569',
+              borderRadius: 2,
+              px: 3,
+              py: 1,
+              fontWeight: 'bold',
+              '&:hover': {
+                borderColor: '#64748b',
+                backgroundColor: 'rgba(100, 116, 139, 0.1)',
+              }
+            }}
+          >
+            Cancelar
+          </Button>
+
           <Button
             variant="contained"
-            color="primary"
             onClick={async () => {
-              // Try to call backend logout, then clear local token and redirect
               const token = localStorage.getItem('token');
               try {
                 if (token) {
-                  await api.post('/logout', {}, { headers: { Authorization: `Bearer ${token}` } });
+                  await api.post('/auth/logout', {}, {
+                    headers: {
+                      Authorization: `Bearer ${token}`
+                    }
+                  });
+                  console.log('✅ Logout exitoso en backend');
                 }
               } catch (err) {
-                // We still clear client-side auth even if backend call fails
-                console.error('Logout request failed', err);
+                console.error('❌ Logout request failed', err);
+              } finally {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                sessionStorage.clear();
+                setLogoutOpen(false);
+                navigate('/');
               }
-              localStorage.removeItem('token');
-              setLogoutOpen(false);
-              navigate('/login');
+            }}
+            sx={{
+              borderRadius: 2,
+              px: 3,
+              py: 1,
+              fontWeight: 'bold',
+              background: 'linear-gradient(90deg, #ef4444, #dc2626)',
+              '&:hover': {
+                background: 'linear-gradient(90deg, #dc2626, #b91c1c)',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+              }
             }}
           >
-            Cerrar sesión
+            Cerrar Sesión
           </Button>
         </DialogActions>
       </Dialog>
@@ -117,12 +187,12 @@ export default function Navbar() {
           <PointOfSaleIcon />
           <Typography variant="h6">POS System</Typography>
         </Box>
-        
+
         <List>
           {menuItems.map((item) => (
             <ListItem key={item.text} disablePadding>
-              <ListItemButton 
-                component={Link} 
+              <ListItemButton
+                component={Link}
                 to={item.path}
                 onClick={toggleDrawer}
                 sx={{

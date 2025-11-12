@@ -57,18 +57,24 @@ export default function Login() {
         });
       }
     } catch (error) {
-      console.error(error);
-      setAlert({
-        type: 'error',
-        message:
-          error.response?.data?.error ||
-          'Error al conectar con el servidor. Intente nuevamente.',
-      });
+      console.error('Login error:', error);
+      if (error.response?.status === 409) {
+        setAlert({
+          type: 'error',
+          message: 'Ya tienes una sesión activa. Por favor, cierra sesión primero o contacta al administrador.',
+        });
+      } else {
+        setAlert({
+          type: 'error',
+          message: error.response?.data?.error || 'Error al conectar con el servidor.',
+        });
+      }
     } finally {
-      setLoading(false);
+      setLoading(false);  // ← Agrega esto para asegurar que loading se resetee
     }
   };
 
+  // 🔹 EL RETURN DEBE ESTAR FUERA de handleSubmit
   return (
     <Box
       sx={{
