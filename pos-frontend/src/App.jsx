@@ -11,6 +11,7 @@ import Reportes from './pages/Reportes';
 import SalesDashboard from './pages/SalesDashboard';
 import RecommendationSystem from './pages/RecommendationSystem';
 import DemandForecast from './pages/DemandForecast';
+import ProductDetail from './pages/ProductDetail';
 
 export default function App() {
   const location = useLocation();
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/RecommendationSystem" element={<RecommendationSystem />} />
         <Route path="/demand-forecast" element={<DemandForecast />} />
         <Route path="/products/new" element={<ProductForm />} />
+         <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/checkoutPage" element={<CheckoutPage/>}/>
       </Routes>
     </>

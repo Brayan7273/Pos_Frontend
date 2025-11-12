@@ -115,6 +115,7 @@ export default function ProductsList() {
     navigate(`/products/${product.Product_ID}`)
   }
 
+
   const handleDelete = async (id) => {
     if (!window.confirm("¿Estás seguro de eliminar este producto?")) return
     await deleteProduct(id)
