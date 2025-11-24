@@ -11,169 +11,176 @@ import {
   Grid,
   MenuItem,
   Alert,
-  Avatar,
-  Container,
-  Paper
+  Container
 } from "@mui/material"
 import {
   Save,
   ArrowBack,
-  Upload,
-  Close,
   Inventory,
   AttachMoney,
   BarChart,
   Category,
   Add
 } from "@mui/icons-material"
+import api from '../services/api';
 
 export default function ProductForm() {
   const navigate = useNavigate()
   const location = useLocation()
   
-  // Obtener el producto pasado por navigate state (si existe)
   const productToEdit = location.state?.product
   
   const [formData, setFormData] = useState({
-    name: "",
-    sku: "",
-    barcode: "",
-    category: "",
-    brand: "",
-    description: "",
-    costPrice: "",
-    salePrice: "",
-    stock: "",
-    minStock: "",
-    maxStock: "",
-    unit: "pz",
-    taxRate: "16",
-    supplier: "",
-    location: "",
+    Name: "",
+    Code: "",
+    Barcode: "",
+    Category: "",
+    Brand: "",
+    Description: "",
+    CostPrice: "",
+    Price: "",
+    Current_Stock: "",
+    Minimum_Stock: "",
+    Maximum_Stock: "",
+    Unit: "pz",
+    TaxRate: "16",
+    Supplier: "",
+    Location: "",
   })
 
-  const [images, setImages] = useState([])
   const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState({})
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
 
-  const categories = ["Bebidas", "Panadería", "Lácteos", "Granos", "Limpieza", "Snacks", "Abarrotes"]
+  const categories = ["Bebidas", "Panadería", "Lácteos", "Granos", "Limpieza", "Snacks", "Abarrotes", "Electrónica", "Accesorios", "Oficina"]
   const units = ["pz", "kg", "lt", "m", "caja", "paquete"]
 
-  // Cargar datos del producto si estamos en modo edición
   useEffect(() => {
     if (productToEdit) {
       setFormData({
-        name: productToEdit.name || "",
-        sku: productToEdit.sku || "",
-        barcode: productToEdit.barcode || "",
-        category: productToEdit.category || "",
-        brand: productToEdit.brand || "",
-        description: productToEdit.description || "",
-        costPrice: productToEdit.costPrice?.toString() || "",
-        salePrice: productToEdit.price?.toString() || productToEdit.salePrice?.toString() || "",
-        stock: productToEdit.stock?.toString() || "",
-        minStock: productToEdit.minStock?.toString() || "",
-        maxStock: productToEdit.maxStock?.toString() || "",
-        unit: productToEdit.unit || "pz",
-        taxRate: productToEdit.taxRate?.toString() || "16",
-        supplier: productToEdit.supplier || "",
-        location: productToEdit.location || "",
+        Name: productToEdit.Name || "",
+        Code: productToEdit.Code || "",
+        Barcode: productToEdit.Barcode || "",
+        Category: productToEdit.Category || "",
+        Brand: productToEdit.Brand || "",
+        Description: productToEdit.Description || "",
+        CostPrice: productToEdit.CostPrice?.toString() || "",
+        Price: productToEdit.Price?.toString() || "",
+        Current_Stock: productToEdit.Current_Stock?.toString() || "",
+        Minimum_Stock: productToEdit.Minimum_Stock?.toString() || "",
+        Maximum_Stock: productToEdit.Maximum_Stock?.toString() || "",
+        Unit: productToEdit.Unit || "pz",
+        TaxRate: productToEdit.TaxRate?.toString() || "16",
+        Supplier: productToEdit.Supplier || "",
+        Location: productToEdit.Location || "",
       })
-      
-      // Si el producto tiene imagen, cargarla
-      if (productToEdit.image) {
-        setImages([{
-          id: 'existing-image',
-          url: productToEdit.image,
-          isExisting: true
-        }])
-      }
     }
   }, [productToEdit])
 
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: "" }))
-    }
-  }
-
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files)
-    const newImages = files.map(file => ({
-      id: Date.now() + Math.random(),
-      url: URL.createObjectURL(file),
-      file
-    }))
-    setImages(prev => [...prev, ...newImages])
-  }
-
-  const removeImage = (id) => {
-    setImages(prev => prev.filter(img => img.id !== id))
+    if (error) setError("")
+    if (success) setSuccess("")
   }
 
   const validateForm = () => {
-    const newErrors = {}
-    if (!formData.name) newErrors.name = "El nombre es requerido"
-    if (!formData.sku) newErrors.sku = "El SKU es requerido"
-    if (!formData.category) newErrors.category = "La categoría es requerida"
-    if (!formData.salePrice || parseFloat(formData.salePrice) <= 0) {
-      newErrors.salePrice = "El precio de venta debe ser mayor a 0"
+    if (!formData.Name.trim()) {
+      setError("El nombre es requerido")
+      return false
     }
-    if (formData.costPrice && formData.salePrice && parseFloat(formData.costPrice) >= parseFloat(formData.salePrice)) {
-      newErrors.costPrice = "El costo debe ser menor al precio de venta"
+    if (!formData.Code.trim()) {
+      setError("El código es requerido")
+      return false
     }
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    if (!formData.Category.trim()) {
+      setError("La categoría es requerida")
+      return false
+    }
+    if (!formData.Price || parseFloat(formData.Price) <= 0) {
+      setError("El precio de venta debe ser mayor a 0")
+      return false
+    }
+    if (formData.CostPrice && formData.Price && parseFloat(formData.CostPrice) >= parseFloat(formData.Price)) {
+      setError("El costo debe ser menor al precio de venta")
+      return false
+    }
+    return true
   }
 
   const resetForm = () => {
     setFormData({
-      name: "",
-      sku: "",
-      barcode: "",
-      category: "",
-      brand: "",
-      description: "",
-      costPrice: "",
-      salePrice: "",
-      stock: "",
-      minStock: "",
-      maxStock: "",
-      unit: "pz",
-      taxRate: "16",
-      supplier: "",
-      location: "",
+      Name: "",
+      Code: "",
+      Barcode: "",
+      Category: "",
+      Brand: "",
+      Description: "",
+      CostPrice: "",
+      Price: "",
+      Current_Stock: "",
+      Minimum_Stock: "",
+      Maximum_Stock: "",
+      Unit: "pz",
+      TaxRate: "16",
+      Supplier: "",
+      Location: "",
     })
-    setImages([])
-    setErrors({})
+    setError("")
+    setSuccess("")
   }
 
-  const handleSubmit = (action = "save") => {
+  const handleSubmit = async (action = "save") => {
     if (!validateForm()) return
 
     setLoading(true)
-    
-    // Simular guardado
-    setTimeout(() => {
-      if (productToEdit) {
-        alert(`Producto "${formData.name}" actualizado exitosamente`)
-        setLoading(false)
-        navigate("/products")
-      } else {
-        alert(`Producto "${formData.name}" creado exitosamente`)
-        setLoading(false)
-        
-        if (action === "saveAndNew") {
-          // Limpiar formulario para nuevo producto
-          resetForm()
-        } else {
-          // Redirigir de vuelta a la lista
-          navigate("/products")
-        }
+    setError("")
+    setSuccess("")
+
+    try {
+      const productData = {
+        Name: formData.Name.trim(),
+        Code: formData.Code.trim(),
+        Barcode: formData.Barcode.trim(),
+        Category: formData.Category,
+        Brand: formData.Brand.trim(),
+        Description: formData.Description.trim(),
+        CostPrice: formData.CostPrice ? parseFloat(formData.CostPrice) : null,
+        Price: parseFloat(formData.Price),
+        Current_Stock: parseInt(formData.Current_Stock) || 0,
+        Minimum_Stock: parseInt(formData.Minimum_Stock) || 0,
+        Maximum_Stock: parseInt(formData.Maximum_Stock) || 0,
+        Unit: formData.Unit,
+        TaxRate: parseFloat(formData.TaxRate) || 0,
+        Supplier: formData.Supplier.trim(),
+        Location: formData.Location.trim(),
       }
-    }, 1000)
+
+      let response
+      
+      if (isEditMode) {
+        response = await api.put(`/products/${productToEdit.Product_ID}`, productData)
+        setSuccess(`Producto "${formData.Name}" actualizado exitosamente`)
+      } else {
+        response = await api.post("/products/", productData)
+        setSuccess(`Producto "${formData.Name}" creado exitosamente`)
+      }
+
+      setLoading(false)
+      
+      if (action === "saveAndNew") {
+        resetForm()
+        setTimeout(() => setSuccess(""), 3000)
+      } else {
+        setTimeout(() => {
+          navigate("/products")
+        }, 2000)
+      }
+    } catch (err) {
+      console.error("Error saving product:", err)
+      setError("Error al guardar el producto: " + (err.response?.data?.message || err.message))
+      setLoading(false)
+    }
   }
 
   const handleSaveAndNew = () => {
@@ -185,8 +192,8 @@ export default function ProductForm() {
   }
 
   const calculateMargin = () => {
-    const cost = parseFloat(formData.costPrice) || 0
-    const sale = parseFloat(formData.salePrice) || 0
+    const cost = parseFloat(formData.CostPrice) || 0
+    const sale = parseFloat(formData.Price) || 0
     if (cost === 0 || sale === 0) return "0.00"
     return (((sale - cost) / sale) * 100).toFixed(2)
   }
@@ -221,12 +228,11 @@ export default function ProductForm() {
               {isEditMode ? "Editar Producto" : "Nuevo Producto"}
             </Typography>
             <Typography variant="body2" sx={{ color: "#9CA3AF" }}>
-              {isEditMode ? `Editando: ${productToEdit.name}` : "Completa la información del producto"}
+              {isEditMode ? `Editando: ${productToEdit.Name}` : "Completa la información del producto"}
             </Typography>
           </Box>
         </Box>
 
-        {/* Alert de modo edición */}
         {isEditMode && (
           <Alert 
             severity="info" 
@@ -237,7 +243,19 @@ export default function ProductForm() {
               border: "1px solid rgba(59, 130, 246, 0.5)"
             }}
           >
-            Estás editando el producto: <strong>{productToEdit.name}</strong> (SKU: {productToEdit.sku})
+            Estás editando el producto: <strong>{productToEdit.Name}</strong> (Código: {productToEdit.Code})
+          </Alert>
+        )}
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError("")}>
+            {error}
+          </Alert>
+        )}
+
+        {success && (
+          <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess("")}>
+            {success}
           </Alert>
         )}
 
@@ -268,12 +286,10 @@ export default function ProductForm() {
                     </Typography>
                     <TextField
                       fullWidth
-                      name="name"
-                      value={formData.name}
+                      name="Name"
+                      value={formData.Name}
                       onChange={handleChange}
-                      placeholder="Ej: Coca Cola 600ml"
-                      error={!!errors.name}
-                      helperText={errors.name}
+                      placeholder="Ej: Laptop HP ProBook"
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
@@ -282,25 +298,20 @@ export default function ProductForm() {
                           "&:hover fieldset": { borderColor: "#475569" },
                           "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
                         }
-                      }}
-                      FormHelperTextProps={{
-                        sx: { color: "#EF4444" }
                       }}
                     />
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
                     <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      SKU *
+                      Código *
                     </Typography>
                     <TextField
                       fullWidth
-                      name="sku"
-                      value={formData.sku}
+                      name="Code"
+                      value={formData.Code}
                       onChange={handleChange}
-                      placeholder="Ej: BEB001"
-                      error={!!errors.sku}
-                      helperText={errors.sku}
+                      placeholder="Ej: LAP-001"
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
@@ -309,9 +320,6 @@ export default function ProductForm() {
                           "&:hover fieldset": { borderColor: "#475569" },
                           "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
                         }
-                      }}
-                      FormHelperTextProps={{
-                        sx: { color: "#EF4444" }
                       }}
                     />
                   </Grid>
@@ -322,8 +330,8 @@ export default function ProductForm() {
                     </Typography>
                     <TextField
                       fullWidth
-                      name="barcode"
-                      value={formData.barcode}
+                      name="Barcode"
+                      value={formData.Barcode}
                       onChange={handleChange}
                       placeholder="7501234567890"
                       InputProps={{
@@ -344,10 +352,10 @@ export default function ProductForm() {
                     </Typography>
                     <TextField
                       fullWidth
-                      name="brand"
-                      value={formData.brand}
+                      name="Brand"
+                      value={formData.Brand}
                       onChange={handleChange}
-                      placeholder="Ej: Coca-Cola"
+                      placeholder="Ej: HP"
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
@@ -366,8 +374,8 @@ export default function ProductForm() {
                     </Typography>
                     <TextField
                       fullWidth
-                      name="description"
-                      value={formData.description}
+                      name="Description"
+                      value={formData.Description}
                       onChange={handleChange}
                       placeholder="Descripción detallada del producto..."
                       multiline
@@ -411,13 +419,11 @@ export default function ProductForm() {
                     </Typography>
                     <TextField
                       fullWidth
-                      name="costPrice"
+                      name="CostPrice"
                       type="number"
-                      value={formData.costPrice}
+                      value={formData.CostPrice}
                       onChange={handleChange}
                       placeholder="0.00"
-                      error={!!errors.costPrice}
-                      helperText={errors.costPrice}
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
@@ -426,9 +432,6 @@ export default function ProductForm() {
                           "&:hover fieldset": { borderColor: "#475569" },
                           "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
                         }
-                      }}
-                      FormHelperTextProps={{
-                        sx: { color: "#EF4444" }
                       }}
                     />
                   </Grid>
@@ -439,13 +442,11 @@ export default function ProductForm() {
                     </Typography>
                     <TextField
                       fullWidth
-                      name="salePrice"
+                      name="Price"
                       type="number"
-                      value={formData.salePrice}
+                      value={formData.Price}
                       onChange={handleChange}
                       placeholder="0.00"
-                      error={!!errors.salePrice}
-                      helperText={errors.salePrice}
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
@@ -454,9 +455,6 @@ export default function ProductForm() {
                           "&:hover fieldset": { borderColor: "#475569" },
                           "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
                         }
-                      }}
-                      FormHelperTextProps={{
-                        sx: { color: "#EF4444" }
                       }}
                     />
                   </Grid>
@@ -468,8 +466,8 @@ export default function ProductForm() {
                     <TextField
                       fullWidth
                       select
-                      name="taxRate"
-                      value={formData.taxRate}
+                      name="TaxRate"
+                      value={formData.TaxRate}
                       onChange={handleChange}
                       InputProps={{
                         sx: {
@@ -502,7 +500,7 @@ export default function ProductForm() {
                   </Grid>
                 </Grid>
 
-                {formData.costPrice && formData.salePrice && (
+                {formData.CostPrice && formData.Price && (
                   <Box
                     sx={{
                       mt: 2,
@@ -548,9 +546,9 @@ export default function ProductForm() {
                     </Typography>
                     <TextField
                       fullWidth
-                      name="stock"
+                      name="Current_Stock"
                       type="number"
-                      value={formData.stock}
+                      value={formData.Current_Stock}
                       onChange={handleChange}
                       placeholder="0"
                       InputProps={{
@@ -571,9 +569,9 @@ export default function ProductForm() {
                     </Typography>
                     <TextField
                       fullWidth
-                      name="minStock"
+                      name="Minimum_Stock"
                       type="number"
-                      value={formData.minStock}
+                      value={formData.Minimum_Stock}
                       onChange={handleChange}
                       placeholder="0"
                       InputProps={{
@@ -594,9 +592,9 @@ export default function ProductForm() {
                     </Typography>
                     <TextField
                       fullWidth
-                      name="maxStock"
+                      name="Maximum_Stock"
                       type="number"
-                      value={formData.maxStock}
+                      value={formData.Maximum_Stock}
                       onChange={handleChange}
                       placeholder="0"
                       InputProps={{
@@ -618,8 +616,8 @@ export default function ProductForm() {
                     <TextField
                       fullWidth
                       select
-                      name="unit"
-                      value={formData.unit}
+                      name="Unit"
+                      value={formData.Unit}
                       onChange={handleChange}
                       InputProps={{
                         sx: {
@@ -657,8 +655,8 @@ export default function ProductForm() {
                     </Typography>
                     <TextField
                       fullWidth
-                      name="supplier"
-                      value={formData.supplier}
+                      name="Supplier"
+                      value={formData.Supplier}
                       onChange={handleChange}
                       placeholder="Nombre del proveedor"
                       InputProps={{
@@ -679,8 +677,8 @@ export default function ProductForm() {
                     </Typography>
                     <TextField
                       fullWidth
-                      name="location"
-                      value={formData.location}
+                      name="Location"
+                      value={formData.Location}
                       onChange={handleChange}
                       placeholder="Ej: Pasillo 3, Estante B"
                       InputProps={{
@@ -724,11 +722,9 @@ export default function ProductForm() {
                   <TextField
                     fullWidth
                     select
-                    name="category"
-                    value={formData.category}
+                    name="Category"
+                    value={formData.Category}
                     onChange={handleChange}
-                    error={!!errors.category}
-                    helperText={errors.category}
                     InputProps={{
                       sx: {
                         bgcolor: "#1E293B",
@@ -737,9 +733,6 @@ export default function ProductForm() {
                         "&:hover fieldset": { borderColor: "#475569" },
                         "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
                       }
-                    }}
-                    FormHelperTextProps={{
-                      sx: { color: "#EF4444" }
                     }}
                     SelectProps={{
                       displayEmpty: true,
@@ -765,103 +758,8 @@ export default function ProductForm() {
                 </CardContent>
               </Card>
 
-              {/* Imágenes */}
-              <Card
-                sx={{
-                  bgcolor: "rgba(15, 23, 42, 0.9)",
-                  border: "1px solid #334155",
-                  backdropFilter: "blur(20px)"
-                }}
-              >
-                <CardContent>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-                    <Upload sx={{ color: "#06B6D4", fontSize: 24 }} />
-                    <Typography variant="h6" sx={{ color: "#FFFFFF", fontWeight: 600 }}>
-                      Imágenes
-                    </Typography>
-                  </Box>
-
-                  <Button
-                    component="label"
-                    fullWidth
-                    sx={{
-                      height: 128,
-                      border: "2px dashed #334155",
-                      bgcolor: "transparent",
-                      color: "#9CA3AF",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 1,
-                      "&:hover": {
-                        border: "2px dashed #475569",
-                        bgcolor: "rgba(30, 41, 59, 0.5)"
-                      }
-                    }}
-                  >
-                    <Upload sx={{ fontSize: 32 }} />
-                    <Typography variant="body2">Subir imágenes</Typography>
-                    <input
-                      type="file"
-                      hidden
-                      multiple
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                    />
-                  </Button>
-
-                  {images.length > 0 && (
-                    <Grid container spacing={1} sx={{ mt: 2 }}>
-                      {images.map(img => (
-                        <Grid item xs={6} key={img.id}>
-                          <Paper
-                            sx={{
-                              position: "relative",
-                              paddingTop: "100%",
-                              bgcolor: "#1E293B",
-                              borderRadius: 2,
-                              overflow: "hidden"
-                            }}
-                          >
-                            <Box
-                              component="img"
-                              src={img.url}
-                              alt="Preview"
-                              sx={{
-                                position: "absolute",
-                                top: 0,
-                                left: 0,
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover"
-                              }}
-                            />
-                            <IconButton
-                              size="small"
-                              onClick={() => removeImage(img.id)}
-                              sx={{
-                                position: "absolute",
-                                top: 4,
-                                right: 4,
-                                bgcolor: "#DC2626",
-                                color: "#FFFFFF",
-                                "&:hover": { bgcolor: "#B91C1C" },
-                                width: 24,
-                                height: 24
-                              }}
-                            >
-                              <Close sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Paper>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  )}
-                </CardContent>
-              </Card>
-
               {/* Botones de Acción */}
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {/* Botón Guardar */}
                 <Button
                   fullWidth
                   variant="contained"
@@ -887,7 +785,6 @@ export default function ProductForm() {
                   }
                 </Button>
 
-                {/* Botón Agregar y Registrar Otro (solo en modo creación) */}
                 {!isEditMode && (
                   <Button
                     fullWidth
