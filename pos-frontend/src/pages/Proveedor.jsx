@@ -233,7 +233,7 @@ export default function Proveedores() {
         showSnackbar('Proveedor actualizado exitosamente', 'success');
       } else {
         // Crear nuevo proveedor
-        await api.post('/suppliers', formData);
+        await api.post('/suppliers/', formData);
         showSnackbar('Proveedor creado exitosamente', 'success');
       }
       
