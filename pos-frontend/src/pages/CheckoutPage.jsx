@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import PaymentIcon from "@mui/icons-material/Payment";
-import { FaPaypal } from "react-icons/fa";
 import { Grid } from "@mui/material";
 import {
   Box,
@@ -30,6 +29,88 @@ import {
   CreditCard,
 } from "@mui/icons-material";
 
+// --- IMPORTANTE: Importa tu instancia de API ---
+// Asumo que está en esta ruta, ajústala si es necesario
+// import api from '../services/api'; // <--- Eliminamos esta línea que da error
+
+// --- CLIENT ID DE PAYPAL ---
+const PAYPAL_CLIENT_ID = "AQUI_VA_TU_CLIENT_ID_DE_SANDBOX";
+
+// Ícono de PayPal en SVG
+const PayPalIcon = () => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+    style={{ marginRight: 8 }}
+  >
+    <path
+      d="M7.74 3.003A1.03 1.03 0 0 0 6.72 4.03l-1.6 10.126c-.05.313.208.584.52.535l2.67-.423c.27-.043.51-.23.6-.49l1.64-4.83c.09-.26.33-.45.6-.49l3.11-.49c2.31-.36 3.42-2.81 2.8-5.02-.16-.57-.48-.9-.98-1.14C14.7 2.05 13.1 2.02 11.53 2.02H9.37c-.55 0-.96.4-1.02.95l-.61.033z"
+      fill="#003087"
+    />
+    <path
+      d="M10.74 12.003a1.03 1.03 0 0 0-1.02 1.03l-1.6 10.126c-.05.313.208.584.52.535l2.67-.423c.27-.043.51-.23.6-.49l1.64-4.83c.09-.26.33-.45.6-.49l3.11-.49c2.31-.36 3.42-2.81 2.8-5.02-.16-.57-.48-.9-.98-1.14-1.1-.53-2.7-.56-4.27-.56h-2.16c-.55 0-.96.4-1.02.95l-.6.033z"
+      fill="#009CDE"
+    />
+    <path
+      d="M11.63 8.003a1.03 1.03 0 0 0-1.02 1.03l-1.6 10.126c-.05.313.208.584.52.535l2.67-.423c.27-.043.51-.23.6-.49l1.64-4.83c.09-.26.33-.45.6-.49l3.11-.49c2.31-.36 3.42-2.81 2.8-5.02-.16-.57-.48-.9-.98-1.14-1.1-.53-2.7-.56-4.27-.56h-2.16c-.55 0-.96.4-1.02.95l-.6.033z"
+      fill="#002F86"
+    />
+  </svg>
+);
+
+// Componente para renderizar botones de PayPal
+const PayPalButtonsComponent = ({ total, onApprove, onError }) => {
+  const paypalRef = useRef();
+  const buttonsRef = useRef(null); 
+
+  useEffect(() => {
+    if (!window.paypal || !paypalRef.current) {
+      return;
+    }
+    if (buttonsRef.current) {
+      buttonsRef.current.close();
+    }
+    buttonsRef.current = window.paypal.Buttons({
+      createOrder: (data, actions) => {
+        return actions.order.create({
+          purchase_units: [
+            {
+              amount: {
+                currency_code: "MXN",
+                value: total.toFixed(2),
+              },
+              description: "Compra en Punto de Venta",
+            },
+          ],
+        });
+      },
+      onApprove: (data, actions) => {
+        return actions.order.capture().then((details) => {
+          onApprove(details);
+        });
+      },
+      onError: (err) => {
+        onError(err);
+      },
+    });
+    buttonsRef.current.render(paypalRef.current).catch((err) => {
+      console.error("Error al renderizar botones de PayPal:", err);
+      onError(err);
+    });
+    return () => {
+      if (buttonsRef.current) {
+        buttonsRef.current.close();
+        buttonsRef.current = null;
+      }
+    };
+  }, [total, onApprove, onError]); 
+
+  return <div ref={paypalRef}></div>;
+};
+
 // Campo de texto estilizado oscuro
 const StyledTextField = (props) => (
   <TextField
@@ -51,6 +132,7 @@ const StyledTextField = (props) => (
   />
 );
 
+// --- Componente Principal ---
 export default function CheckoutPage() {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,8 +142,34 @@ export default function CheckoutPage() {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("tarjeta");
+  const [sdkReady, setSdkReady] = useState(false);
 
-  // Simular carga inicial de productos
+  // --- Carga del Script de PayPal ---
+  useEffect(() => {
+    if (window.paypal) {
+      setSdkReady(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=MXN&intent=capture`;
+    script.type = "text/javascript";
+    script.async = true;
+    script.onload = () => {
+      setSdkReady(true);
+    };
+    script.onerror = () => {
+      console.error("Error al cargar el script de PayPal.");
+      setError("No se pudo cargar el método de pago PayPal.");
+    };
+    document.body.appendChild(script);
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []); 
+
+  // --- Lógica del Carrito ---
   useEffect(() => {
     fetchCartItems();
   }, []);
@@ -106,10 +214,78 @@ export default function CheckoutPage() {
   const taxes = subtotal * 0.16;
   const total = subtotal + taxes;
 
-  const handlePayment = (e) => {
+  // --- NUEVA FUNCIÓN PARA GUARDAR LA VENTA ---
+  const recordSaleTransaction = async (paymentMethodName) => {
+    const transactionDate = new Date().toISOString();
+    
+    // 1. Crear un array de promesas, una por cada producto vendido
+    const salePromises = selectedProducts.map(item => {
+      const saleRecord = {
+        product_name: item.name,
+        quantity: item.quantity,
+        total: (item.price * item.quantity).toFixed(2),
+        date: transactionDate,
+        payment_method: paymentMethodName, // Dato extra, útil para tu tabla
+      };
+      
+      // 2. Enviar cada item a la API usando fetch (reemplazando api.post)
+      return fetch('/sales', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(saleRecord)
+      }).then(response => {
+        if (!response.ok) {
+          // Si la respuesta no es OK, lanzar un error para que Promise.all lo capture
+          throw new Error(`Error al registrar item: ${item.name}`);
+        }
+        // Asumimos que la API devuelve JSON, si no, usa response.text()
+        return response.json(); 
+      });
+    });
+
+    try {
+      // 3. Esperar a que todas las ventas se guarden
+      await Promise.all(salePromises);
+      console.log("Venta registrada exitosamente en la API");
+    } catch (err) {
+      console.error("Error al registrar la venta:", err);
+      // Opcional: Mostrar un error al usuario, pero no detener el flujo
+      // ya que el pago ya se hizo.
+      setError("El pago se completó, pero hubo un error al guardar el recibo.");
+    }
+  };
+  
+  // --- PAGO CON TARJETA (ACTUALIZADO) ---
+  const handleCardPayment = async (e) => { // Convertido a async
     e.preventDefault();
-    alert(`Pago realizado con ${paymentMethod}`);
+    
+    // 1. Guardar la venta en la API
+    await recordSaleTransaction('Tarjeta');
+    
+    // 2. Mostrar éxito y limpiar
+    alert(`Pago (simulado) realizado con ${paymentMethod}`);
     setShowPaymentModal(false);
+    setSelectedProducts([]);
+  };
+
+  // --- PAGO CON PAYPAL (ACTUALIZADO) ---
+  const handlePayPalApprove = async (details) => { // Convertido a async
+    
+    // 1. Guardar la venta en la API
+    await recordSaleTransaction('PayPal');
+
+    // 2. Mostrar éxito y limpiar
+    alert("¡Pago completado exitosamente por " + details.payer.name.given_name + "!");
+    setShowPaymentModal(false);
+    setSelectedProducts([]);
+    console.log("Detalles de la transacción:", details);
+  };
+
+  const handlePayPalError = (err) => {
+    console.error("Error en el pago de PayPal:", err);
+    setError("Hubo un error al procesar el pago con PayPal. Intenta de nuevo.");
   };
 
   const filteredProducts = cartItems.filter((item) =>
@@ -117,6 +293,7 @@ export default function CheckoutPage() {
   );
 
   if (loading) {
+    // ... (Indicador de carga)
     return (
       <Box
         sx={{
@@ -137,6 +314,7 @@ export default function CheckoutPage() {
     );
   }
 
+  // --- Renderizado del Componente ---
   return (
     <Box
       sx={{
@@ -190,7 +368,7 @@ export default function CheckoutPage() {
         </Grid>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError("")}>
             {error}
           </Alert>
         )}
@@ -210,7 +388,7 @@ export default function CheckoutPage() {
                 <Typography variant="h6" sx={{ color: "#FFFFFF", mb: 2 }}>
                   Productos Disponibles
                 </Typography>
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 300, overflowY: 'auto' }}>
                   {filteredProducts.length > 0 ? (
                     filteredProducts.map((item) => (
                       <Box
@@ -259,8 +437,6 @@ export default function CheckoutPage() {
                 </Box>
               </CardContent>
             </Card>
-
-            {/* Detalle */}
             <Card
               sx={{
                 bgcolor: "rgba(15, 23, 42, 0.9)",
@@ -272,39 +448,41 @@ export default function CheckoutPage() {
                 <Typography variant="h6" sx={{ color: "#FFFFFF", mb: 2 }}>
                   Detalle de productos seleccionados
                 </Typography>
-                {selectedProducts.length > 0 ? (
-                  selectedProducts.map((item) => (
-                    <Box
-                      key={item.id}
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mb: 1,
-                        pb: 1,
-                        borderBottom: "1px solid #1E293B",
-                      }}
-                    >
-                      <Typography sx={{ color: "#FFFFFF" }}>
-                        {item.name} x {item.quantity}
-                      </Typography>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Typography sx={{ color: "#10B981" }}>
-                          ${(item.price * item.quantity).toFixed(2)}
+                <Box sx={{ maxHeight: 300, overflowY: 'auto' }}>
+                  {selectedProducts.length > 0 ? (
+                    selectedProducts.map((item) => (
+                      <Box
+                        key={item.id}
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          mb: 1,
+                          pb: 1,
+                          borderBottom: "1px solid #1E293B",
+                        }}
+                      >
+                        <Typography sx={{ color: "#FFFFFF" }}>
+                          {item.name} x {item.quantity}
                         </Typography>
-                        <IconButton
-                          size="small"
-                          sx={{ color: "#EF4444" }}
-                          onClick={() => handleRemoveProduct(item.id)}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Typography sx={{ color: "#10B981" }}>
+                            ${(item.price * item.quantity).toFixed(2)}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            sx={{ color: "#EF4444" }}
+                            onClick={() => handleRemoveProduct(item.id)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Box>
                       </Box>
-                    </Box>
-                  ))
-                ) : (
-                  <Typography sx={{ color: "#9CA3AF" }}>No hay productos agregados.</Typography>
-                )}
+                    ))
+                  ) : (
+                    <Typography sx={{ color: "#9CA3AF" }}>No hay productos agregados.</Typography>
+                  )}
+                </Box>
               </CardContent>
             </Card>
           </Grid>
@@ -431,12 +609,12 @@ export default function CheckoutPage() {
                 "&:hover": { bgcolor: "#2563EB" },
               }}
             >
-              <FaPaypal style={{ marginRight: 8 }} /> PayPal
+              <PayPalIcon /> PayPal
             </ToggleButton>
           </ToggleButtonGroup>
 
           {paymentMethod === "tarjeta" ? (
-            <form onSubmit={handlePayment}>
+            <form onSubmit={handleCardPayment}>
               <StyledTextField label="Número de tarjeta" required sx={{ mb: 2 }} />
               <StyledTextField label="Nombre en la tarjeta" required sx={{ mb: 2 }} />
               <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
@@ -457,22 +635,18 @@ export default function CheckoutPage() {
               </Button>
             </form>
           ) : (
-            <Box sx={{ textAlign: "center" }}>
-              <Typography sx={{ mb: 2 }}>Serás redirigido a PayPal</Typography>
-              <Button
-                onClick={handlePayment}
-                fullWidth
-                variant="contained"
-                startIcon={<FaPaypal />}
-                sx={{
-                  bgcolor: "#FBBF24",
-                  "&:hover": { bgcolor: "#F59E0B" },
-                  color: "#1E293B",
-                  fontWeight: 600,
-                }}
-              >
-                Pagar con PayPal
-              </Button>
+            <Box sx={{ mt: 2, minHeight: "150px" }}>
+              {sdkReady ? (
+                <PayPalButtonsComponent
+                  total={total}
+                  onApprove={handlePayPalApprove}
+                  onError={handlePayPalError}
+                />
+              ) : (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                  <CircularProgress sx={{ color: "#2563EB" }} />
+                </Box>
+              )}
             </Box>
           )}
         </Box>
