@@ -105,7 +105,7 @@ export default function Proveedores() {
     try {
       setLoading(true);
       setError('');
-      const response = await api.get('/suppliers/');
+      const response = await api.get('/suppliers');
       setProveedores(response.data);
       setFilteredProveedores(response.data);
     } catch (err) {
