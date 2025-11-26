@@ -15,14 +15,15 @@ import api from '../services/api';
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ 
-    password: '', 
-    confirmPassword: '' 
+  const [form, setForm] = useState({
+    password: '',
+    confirmPassword: ''
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState({ type: '', message: '' });
   const [token, setToken] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState(0);
 
   useEffect(() => {
     const tokenFromUrl = searchParams.get('token');
@@ -35,16 +36,44 @@ export default function ResetPassword() {
     setToken(tokenFromUrl);
   }, [searchParams]);
 
-  // 🔹 Validar campos
+  // 🔹 Validar campos - VERSIÓN MEJORADA
   const validate = () => {
     const newErrors = {};
 
+    // Validación de contraseña
     if (!form.password) {
       newErrors.password = 'La contraseña es obligatoria';
-    } else if (form.password.length < 6) {
-      newErrors.password = 'Debe tener al menos 6 caracteres';
+    } else if (form.password.length < 8) {
+      newErrors.password = 'Debe tener al menos 8 caracteres';
+    } else {
+      // Validaciones de seguridad mejoradas
+      const securityChecks = {
+        minLength: form.password.length >= 8,
+        hasUpperCase: /[A-Z]/.test(form.password),
+        hasLowerCase: /[a-z]/.test(form.password),
+        hasNumbers: /\d/.test(form.password),
+        hasSpecialChar: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(form.password),
+        noSpaces: !/\s/.test(form.password)
+      };
+
+      const failedChecks = Object.keys(securityChecks).filter(check => !securityChecks[check]);
+
+      if (failedChecks.length > 0) {
+        const errorMessages = {
+          minLength: 'al menos 8 caracteres',
+          hasUpperCase: 'una letra mayúscula',
+          hasLowerCase: 'una letra minúscula',
+          hasNumbers: 'un número',
+          hasSpecialChar: 'un carácter especial',
+          noSpaces: 'no contener espacios'
+        };
+
+        const missingRequirements = failedChecks.map(check => errorMessages[check]).join(', ');
+        newErrors.password = `La contraseña debe contener: ${missingRequirements}`;
+      }
     }
 
+    // Validación de confirmación de contraseña
     if (!form.confirmPassword) {
       newErrors.confirmPassword = 'Confirma tu contraseña';
     } else if (form.password !== form.confirmPassword) {
@@ -53,6 +82,29 @@ export default function ResetPassword() {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  // 🔹 Calcular fortaleza de la contraseña (opcional - para feedback visual)
+  const calculatePasswordStrength = (password) => {
+    if (!password) return 0;
+
+    let strength = 0;
+    if (password.length >= 8) strength += 20;
+    if (/[A-Z]/.test(password)) strength += 20;
+    if (/[a-z]/.test(password)) strength += 20;
+    if (/\d/.test(password)) strength += 20;
+    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) strength += 20;
+
+    return strength;
+  };
+
+  // 🔹 Obtener texto de fortaleza (opcional)
+  const getStrengthText = (strength) => {
+    if (strength === 0) return '';
+    if (strength <= 40) return 'Débil';
+    if (strength <= 60) return 'Media';
+    if (strength <= 80) return 'Fuerte';
+    return 'Muy fuerte';
   };
 
   // 🔹 Enviar formulario de reset
@@ -74,7 +126,7 @@ export default function ResetPassword() {
           type: 'success',
           message: '¡Contraseña actualizada correctamente! Redirigiendo al login...'
         });
-        
+
         // Redirigir al login después de 3 segundos
         setTimeout(() => {
           navigate('/');
@@ -194,9 +246,12 @@ export default function ResetPassword() {
               fullWidth
               margin="normal"
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, password: e.target.value });
+                setPasswordStrength(calculatePasswordStrength(e.target.value));
+              }}
               error={!!errors.password}
-              helperText={errors.password}
+              helperText={errors.password || (form.password && `Fortaleza: ${getStrengthText(passwordStrength)} (${passwordStrength}%)`)}
               variant="filled"
               InputProps={{
                 disableUnderline: true,
