@@ -49,6 +49,7 @@ export default function ProductsList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
+  
   useEffect(() => {
     fetchProducts()
   }, [])

@@ -22,7 +22,9 @@ import {
   Fade,
   Tooltip,
   Stack,
-  Alert
+  Alert,
+  Snackbar,
+  CircularProgress
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -34,9 +36,11 @@ import {
   Phone as PhoneIcon,
   Email as EmailIcon,
   LocationOn as LocationIcon,
-  Badge as BadgeIcon
+  Badge as BadgeIcon,
+  Person as PersonIcon
 } from '@mui/icons-material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
+import api from '../services/api';
 
 // Tema oscuro personalizado
 const darkTheme = createTheme({
@@ -82,47 +86,61 @@ export default function Proveedores() {
   const [openDialog, setOpenDialog] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
   const [formData, setFormData] = useState({
-    nombre: '',
-    numero: '',
-    telefono: '',
-    correoElectronico: '',
-    direccion: ''
+    name: '',
+    phone: '',
+    contact: '',
+    email: '',
+    address: ''
   });
 
   const [errors, setErrors] = useState({});
 
+  // Cargar proveedores desde el backend
+  const fetchProveedores = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const response = await api.get('/suppliers');
+      setProveedores(response.data);
+      setFilteredProveedores(response.data);
+    } catch (err) {
+      console.error('Error cargando proveedores:', err);
+      setError('Error al cargar los proveedores');
+      showSnackbar('Error al cargar los proveedores', 'error');
+      
+      // Datos de ejemplo como fallback
+      const ejemploProveedores = [
+        {
+          supplier_id: 1,
+          name: 'Distribuidora López',
+          phone: '4611234567',
+          contact: 'Juan López',
+          email: 'contacto@lopez.com',
+          address: 'Av. Principal 123, Celaya, Gto.'
+        },
+        {
+          supplier_id: 2,
+          name: 'Suministros García',
+          phone: '4619876543',
+          contact: 'María García',
+          email: 'ventas@garcia.com',
+          address: 'Calle Comercio 45, Celaya, Gto.'
+        }
+      ];
+      setProveedores(ejemploProveedores);
+      setFilteredProveedores(ejemploProveedores);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    // En producción: api.get('/proveedores').then(res => setProveedores(res.data))
-    const ejemploProveedores = [
-      {
-        id: 1,
-        nombre: 'Distribuidora López',
-        numero: 'PROV-001',
-        telefono: '4611234567',
-        correoElectronico: 'contacto@lopez.com',
-        direccion: 'Av. Principal 123, Celaya, Gto.'
-      },
-      {
-        id: 2,
-        nombre: 'Suministros García',
-        numero: 'PROV-002',
-        telefono: '4619876543',
-        correoElectronico: 'ventas@garcia.com',
-        direccion: 'Calle Comercio 45, Celaya, Gto.'
-      },
-      {
-        id: 3,
-        nombre: 'Importadora Martínez',
-        numero: 'PROV-003',
-        telefono: '4615551234',
-        correoElectronico: 'info@martinez.com',
-        direccion: 'Blvd. Industrial 890, Celaya, Gto.'
-      }
-    ];
-    setProveedores(ejemploProveedores);
-    setFilteredProveedores(ejemploProveedores);
+    fetchProveedores();
   }, []);
 
   useEffect(() => {
@@ -130,27 +148,37 @@ export default function Proveedores() {
       setFilteredProveedores(proveedores);
     } else {
       const filtered = proveedores.filter(p => 
-        p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.telefono.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.correoElectronico.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.direccion.toLowerCase().includes(searchTerm.toLowerCase())
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.email && p.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (p.address && p.address.toLowerCase().includes(searchTerm.toLowerCase()))
       );
       setFilteredProveedores(filtered);
     }
   }, [searchTerm, proveedores]);
 
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
   const handleOpenDialog = (proveedor = null) => {
     if (proveedor) {
-      setFormData(proveedor);
-      setEditingId(proveedor.id);
+      setFormData({
+        name: proveedor.name || '',
+        phone: proveedor.phone || '',
+        contact: proveedor.contact || '',
+        email: proveedor.email || '',
+        address: proveedor.address || ''
+      });
+      setEditingId(proveedor.supplier_id);
     } else {
       setFormData({
-        nombre: '',
-        numero: '',
-        telefono: '',
-        correoElectronico: '',
-        direccion: ''
+        name: '',
+        phone: '',
+        contact: '',
+        email: '',
+        address: ''
       });
       setEditingId(null);
     }
@@ -162,11 +190,11 @@ export default function Proveedores() {
     setOpenDialog(false);
     setEditingId(null);
     setFormData({
-      nombre: '',
-      numero: '',
-      telefono: '',
-      correoElectronico: '',
-      direccion: ''
+      name: '',
+      phone: '',
+      contact: '',
+      email: '',
+      address: ''
     });
     setErrors({});
   };
@@ -187,42 +215,69 @@ export default function Proveedores() {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.nombre.trim()) newErrors.nombre = 'El nombre es requerido';
-    if (!formData.numero.trim()) newErrors.numero = 'El número es requerido';
-    if (!formData.telefono.trim()) newErrors.telefono = 'El teléfono es requerido';
-    if (!formData.correoElectronico.trim()) {
-      newErrors.correoElectronico = 'El correo es requerido';
-    } else if (!/\S+@\S+\.\S+/.test(formData.correoElectronico)) {
-      newErrors.correoElectronico = 'El correo no es válido';
-    }
-    if (!formData.direccion.trim()) newErrors.direccion = 'La dirección es requerida';
+    if (!formData.name.trim()) newErrors.name = 'El nombre es requerido';
+    if (!formData.phone.trim()) newErrors.phone = 'El teléfono es requerido';
+    if (!formData.contact.trim()) newErrors.contact = 'El contacto es requerido';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    if (editingId) {
-      setProveedores(proveedores.map(p => 
-        p.id === editingId ? { ...formData, id: editingId } : p
-      ));
-    } else {
-      const nuevoProveedor = {
-        ...formData,
-        id: Date.now()
-      };
-      setProveedores([...proveedores, nuevoProveedor]);
+    try {
+      if (editingId) {
+        // Actualizar proveedor existente
+        await api.put(`/suppliers/${editingId}`, formData);
+        showSnackbar('Proveedor actualizado exitosamente', 'success');
+      } else {
+        // Crear nuevo proveedor
+        await api.post('/suppliers', formData);
+        showSnackbar('Proveedor creado exitosamente', 'success');
+      }
+      
+      // Recargar la lista
+      await fetchProveedores();
+      handleCloseDialog();
+      
+    } catch (err) {
+      console.error('Error guardando proveedor:', err);
+      showSnackbar('Error al guardar el proveedor', 'error');
     }
-    handleCloseDialog();
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('¿Estás seguro de eliminar este proveedor?')) {
-      setProveedores(proveedores.filter(p => p.id !== id));
+      try {
+        await api.delete(`/suppliers/${id}`);
+        showSnackbar('Proveedor eliminado exitosamente', 'success');
+        await fetchProveedores();
+      } catch (err) {
+        console.error('Error eliminando proveedor:', err);
+        showSnackbar('Error al eliminar el proveedor', 'error');
+      }
     }
   };
+
+  const generateSupplierNumber = (id) => {
+    return `PROV-${String(id).padStart(3, '0')}`;
+  };
+
+  if (loading) {
+    return (
+      <ThemeProvider theme={darkTheme}>
+        <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Stack alignItems="center" spacing={2}>
+            <CircularProgress size={60} sx={{ color: 'primary.main' }} />
+            <Typography variant="h6" color="text.primary">
+              Cargando proveedores...
+            </Typography>
+          </Stack>
+        </Box>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider theme={darkTheme}>
@@ -260,11 +315,17 @@ export default function Proveedores() {
             </Stack>
           </Box>
 
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
+          )}
+
           {/* Búsqueda */}
           <Paper sx={{ p: 2.5, mb: 3, borderRadius: 2, bgcolor: 'background.paper' }}>
             <TextField
               fullWidth
-              placeholder="Buscar por nombre o SKU..."
+              placeholder="Buscar por nombre, contacto o teléfono..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
@@ -306,6 +367,7 @@ export default function Proveedores() {
                 }}>
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Número</TableCell>
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Nombre</TableCell>
+                  <TableCell sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Contacto</TableCell>
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Teléfono</TableCell>
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Correo</TableCell>
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Dirección</TableCell>
@@ -315,7 +377,7 @@ export default function Proveedores() {
               <TableBody>
                 {filteredProveedores.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 8, borderBottom: 'none' }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 8, borderBottom: 'none' }}>
                       <BusinessIcon sx={{ fontSize: 60, color: 'text.secondary', opacity: 0.3, mb: 2 }} />
                       <Typography color="text.primary" variant="h6" mb={1}>
                         No se encontraron proveedores
@@ -327,7 +389,7 @@ export default function Proveedores() {
                   </TableRow>
                 ) : (
                   filteredProveedores.map((proveedor, index) => (
-                    <Fade in key={proveedor.id} timeout={300 + index * 100}>
+                    <Fade in key={proveedor.supplier_id} timeout={300 + index * 100}>
                       <TableRow 
                         hover
                         sx={{
@@ -339,7 +401,7 @@ export default function Proveedores() {
                       >
                         <TableCell>
                           <Chip 
-                            label={proveedor.numero} 
+                            label={generateSupplierNumber(proveedor.supplier_id)} 
                             size="small" 
                             sx={{
                               bgcolor: 'rgba(79, 127, 255, 0.15)',
@@ -351,14 +413,22 @@ export default function Proveedores() {
                         </TableCell>
                         <TableCell>
                           <Typography fontWeight={600} color="text.primary">
-                            {proveedor.nombre}
+                            {proveedor.name}
                           </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <PersonIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                            <Typography color="text.secondary">
+                              {proveedor.contact}
+                            </Typography>
+                          </Box>
                         </TableCell>
                         <TableCell>
                           <Box display="flex" alignItems="center" gap={1}>
                             <PhoneIcon fontSize="small" sx={{ color: 'text.secondary' }} />
                             <Typography color="text.secondary">
-                              {proveedor.telefono}
+                              {proveedor.phone}
                             </Typography>
                           </Box>
                         </TableCell>
@@ -366,7 +436,7 @@ export default function Proveedores() {
                           <Box display="flex" alignItems="center" gap={1}>
                             <EmailIcon fontSize="small" sx={{ color: 'text.secondary' }} />
                             <Typography color="text.secondary">
-                              {proveedor.correoElectronico}
+                              {proveedor.email || 'No especificado'}
                             </Typography>
                           </Box>
                         </TableCell>
@@ -374,7 +444,7 @@ export default function Proveedores() {
                           <Box display="flex" alignItems="center" gap={1}>
                             <LocationIcon fontSize="small" sx={{ color: 'text.secondary' }} />
                             <Typography color="text.secondary">
-                              {proveedor.direccion}
+                              {proveedor.address || 'No especificada'}
                             </Typography>
                           </Box>
                         </TableCell>
@@ -393,7 +463,7 @@ export default function Proveedores() {
                           </Tooltip>
                           <Tooltip title="Eliminar">
                             <IconButton
-                              onClick={() => handleDelete(proveedor.id)}
+                              onClick={() => handleDelete(proveedor.supplier_id)}
                               size="small"
                               sx={{ 
                                 color: 'error.main',
@@ -448,12 +518,12 @@ export default function Proveedores() {
               <Stack spacing={3}>
                 <TextField
                   fullWidth
-                  label="Nombre"
-                  name="nombre"
-                  value={formData.nombre}
+                  label="Nombre del Proveedor"
+                  name="name"
+                  value={formData.name}
                   onChange={handleChange}
-                  error={!!errors.nombre}
-                  helperText={errors.nombre}
+                  error={!!errors.name}
+                  helperText={errors.name}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -465,16 +535,16 @@ export default function Proveedores() {
 
                 <TextField
                   fullWidth
-                  label="Número de Proveedor"
-                  name="numero"
-                  value={formData.numero}
+                  label="Persona de Contacto"
+                  name="contact"
+                  value={formData.contact}
                   onChange={handleChange}
-                  error={!!errors.numero}
-                  helperText={errors.numero}
+                  error={!!errors.contact}
+                  helperText={errors.contact}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <BadgeIcon sx={{ color: 'text.secondary' }} />
+                        <PersonIcon sx={{ color: 'text.secondary' }} />
                       </InputAdornment>
                     )
                   }}
@@ -483,11 +553,11 @@ export default function Proveedores() {
                 <TextField
                   fullWidth
                   label="Teléfono"
-                  name="telefono"
-                  value={formData.telefono}
+                  name="phone"
+                  value={formData.phone}
                   onChange={handleChange}
-                  error={!!errors.telefono}
-                  helperText={errors.telefono}
+                  error={!!errors.phone}
+                  helperText={errors.phone}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -500,12 +570,12 @@ export default function Proveedores() {
                 <TextField
                   fullWidth
                   label="Correo Electrónico"
-                  name="correoElectronico"
+                  name="email"
                   type="email"
-                  value={formData.correoElectronico}
+                  value={formData.email}
                   onChange={handleChange}
-                  error={!!errors.correoElectronico}
-                  helperText={errors.correoElectronico}
+                  error={!!errors.email}
+                  helperText={errors.email}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -518,13 +588,13 @@ export default function Proveedores() {
                 <TextField
                   fullWidth
                   label="Dirección"
-                  name="direccion"
+                  name="address"
                   multiline
                   rows={3}
-                  value={formData.direccion}
+                  value={formData.address}
                   onChange={handleChange}
-                  error={!!errors.direccion}
-                  helperText={errors.direccion}
+                  error={!!errors.address}
+                  helperText={errors.address}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 2 }}>
@@ -570,6 +640,21 @@ export default function Proveedores() {
               </Button>
             </DialogActions>
           </Dialog>
+
+          {/* Snackbar para notificaciones */}
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={6000}
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          >
+            <Alert 
+              severity={snackbar.severity} 
+              onClose={() => setSnackbar({ ...snackbar, open: false })}
+            >
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
         </Container>
       </Box>
     </ThemeProvider>

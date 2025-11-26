@@ -18,7 +18,6 @@ import {
   AutoAwesome as SparklesIcon,
   Inventory as PackageIcon,
   TrendingUp as TrendingUpIcon,
-  People as UsersIcon,
   ShoppingCart as CartIcon,
   Bolt as ZapIcon,
   Search as SearchIcon,
@@ -30,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import api from '../services/api';
 
 const darkTheme = createTheme({
   palette: {
@@ -53,9 +53,6 @@ const darkTheme = createTheme({
     warning: {
       main: '#F59E0B',
     },
-    error: {
-      main: '#EF4444',
-    },
   },
   components: {
     MuiPaper: {
@@ -76,7 +73,6 @@ export default function RecommendationSystem() {
     productRecommendations: [],
     bundleSuggestions: [],
     crossSellOpportunities: [],
-    upsellItems: [],
     trendingCombos: [],
     performanceMetrics: {}
   });
@@ -88,20 +84,10 @@ export default function RecommendationSystem() {
   const fetchRecommendations = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/ml/recommendations", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setRecommendationData(data);
-      }
+      const response = await api.get("/ml/recommendations");
+      setRecommendationData(response.data);
     } catch (err) {
-      console.error("Error al cargar recomendaciones:", err);
+      console.error("Error:", err);
     } finally {
       setLoading(false);
     }
@@ -114,20 +100,10 @@ export default function RecommendationSystem() {
     }
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:5000/ml/recommendations/product?q=${query}`, {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSelectedProduct(data);
-      }
+      const response = await api.get(`/ml/recommendations/product?q=${query}`);
+      setSelectedProduct(response.data);
     } catch (err) {
-      console.error("Error al buscar producto:", err);
+      console.error("Error:", err);
     }
   };
 
@@ -139,22 +115,10 @@ export default function RecommendationSystem() {
 
   const createBundle = async (items) => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/ml/recommendations/bundle", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ items })
-      });
-
-      if (response.ok) {
-        alert("Bundle creado exitosamente");
-        fetchRecommendations();
-      }
+      await api.post("/ml/recommendations/bundle", { items });
+      fetchRecommendations();
     } catch (err) {
-      alert("Error al crear bundle");
+      console.error("Error:", err);
     }
   };
 
@@ -164,7 +128,7 @@ export default function RecommendationSystem() {
         <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Box sx={{ textAlign: 'center' }}>
             <CircularProgress sx={{ color: 'warning.main', mb: 2 }} size={60} />
-            <Typography variant="h6" color="text.primary">Generando recomendaciones inteligentes...</Typography>
+            <Typography variant="h6" color="text.primary">Cargando...</Typography>
           </Box>
         </Box>
       </ThemeProvider>
@@ -185,7 +149,7 @@ export default function RecommendationSystem() {
               </Typography>
             </Stack>
             <Typography variant="body2" color="text.secondary">
-              Aumenta tus ventas con Machine Learning
+              Recomendaciones basadas en datos reales
             </Typography>
           </Box>
 
@@ -196,12 +160,7 @@ export default function RecommendationSystem() {
                 bgcolor: 'background.paper', 
                 border: '1px solid rgba(255, 255, 255, 0.1)', 
                 borderRadius: 2,
-                height: '100%',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 8px 25px rgba(0,0,0,0.3)'
-                }
+                height: '100%'
               }}>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
@@ -230,12 +189,7 @@ export default function RecommendationSystem() {
                 bgcolor: 'background.paper', 
                 border: '1px solid rgba(255, 255, 255, 0.1)', 
                 borderRadius: 2,
-                height: '100%',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 8px 25px rgba(0,0,0,0.3)'
-                }
+                height: '100%'
               }}>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
@@ -264,12 +218,7 @@ export default function RecommendationSystem() {
                 bgcolor: 'background.paper', 
                 border: '1px solid rgba(255, 255, 255, 0.1)', 
                 borderRadius: 2,
-                height: '100%',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 8px 25px rgba(0,0,0,0.3)'
-                }
+                height: '100%'
               }}>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
@@ -298,12 +247,7 @@ export default function RecommendationSystem() {
                 bgcolor: 'background.paper', 
                 border: '1px solid rgba(255, 255, 255, 0.1)', 
                 borderRadius: 2,
-                height: '100%',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 8px 25px rgba(0,0,0,0.3)'
-                }
+                height: '100%'
               }}>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
@@ -333,13 +277,13 @@ export default function RecommendationSystem() {
             <Stack direction="row" alignItems="center" spacing={1} mb={2}>
               <SearchIcon sx={{ color: 'primary.main' }} />
               <Typography variant="h6" fontWeight={600} color="text.primary">
-                Buscar Recomendaciones por Producto
+                Buscar Recomendaciones
               </Typography>
             </Stack>
             
             <TextField
               fullWidth
-              placeholder="Buscar producto para ver recomendaciones..."
+              placeholder="Buscar producto..."
               value={searchTerm}
               onChange={handleSearchChange}
               InputProps={{
@@ -376,12 +320,9 @@ export default function RecommendationSystem() {
                   </Box>
                 </Stack>
 
-                <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                  <SparklesIcon sx={{ color: '#FBBF24', fontSize: 18 }} />
-                  <Typography variant="subtitle2" fontWeight={600} color="text.primary">
-                    Clientes que compraron esto también compraron:
-                  </Typography>
-                </Stack>
+                <Typography variant="subtitle2" fontWeight={600} color="text.primary" mb={2}>
+                  Productos relacionados:
+                </Typography>
 
                 <Grid container spacing={2}>
                   {selectedProduct.recommendations?.map((rec, index) => (
@@ -390,12 +331,7 @@ export default function RecommendationSystem() {
                         p: 2, 
                         bgcolor: 'rgba(26, 35, 50, 0.7)', 
                         border: '1px solid rgba(255, 255, 255, 0.1)',
-                        borderRadius: 2,
-                        transition: 'all 0.2s',
-                        '&:hover': {
-                          borderColor: 'primary.main',
-                          transform: 'translateY(-4px)'
-                        }
+                        borderRadius: 2
                       }}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
                           <Typography variant="body2" fontWeight={500} color="text.primary" sx={{ flex: 1 }}>
@@ -426,8 +362,7 @@ export default function RecommendationSystem() {
                             sx={{ 
                               bgcolor: 'primary.main',
                               textTransform: 'none',
-                              fontSize: 12,
-                              py: 0.5
+                              fontSize: 12
                             }}
                           >
                             Agregar
@@ -448,7 +383,7 @@ export default function RecommendationSystem() {
                 <Stack direction="row" alignItems="center" spacing={1} mb={3}>
                   <PackageIcon sx={{ color: '#8B5CF6' }} />
                   <Typography variant="h6" fontWeight={600} color="text.primary">
-                    Bundles Sugeridos por ML
+                    Bundles Sugeridos
                   </Typography>
                 </Stack>
 
@@ -458,12 +393,7 @@ export default function RecommendationSystem() {
                       p: 2, 
                       bgcolor: 'rgba(255, 255, 255, 0.03)', 
                       border: '1px solid rgba(255, 255, 255, 0.05)',
-                      borderRadius: 1.5,
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        bgcolor: 'rgba(255, 255, 255, 0.05)',
-                        borderColor: 'rgba(139, 92, 246, 0.5)'
-                      }
+                      borderRadius: 1.5
                     }}>
                       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
                         <Box>
@@ -499,7 +429,7 @@ export default function RecommendationSystem() {
                         <Stack direction="row" alignItems="center" spacing={0.5}>
                           <StarIcon sx={{ color: '#FBBF24', fontSize: 14 }} />
                           <Typography variant="caption" sx={{ color: '#FBBF24' }}>
-                            Popularidad: {bundle.popularity}%
+                            {bundle.popularity}%
                           </Typography>
                         </Stack>
                         <Button 
@@ -508,7 +438,6 @@ export default function RecommendationSystem() {
                           onClick={() => createBundle(bundle.items)}
                           sx={{ 
                             bgcolor: '#7C3AED',
-                            '&:hover': { bgcolor: '#6D28D9' },
                             textTransform: 'none',
                             fontSize: 12
                           }}
@@ -518,15 +447,6 @@ export default function RecommendationSystem() {
                       </Stack>
                     </Paper>
                   ))}
-
-                  {recommendationData.bundleSuggestions.length === 0 && (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <PackageIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        No hay bundles sugeridos
-                      </Typography>
-                    </Box>
-                  )}
                 </Stack>
               </Paper>
             </Grid>
@@ -536,7 +456,7 @@ export default function RecommendationSystem() {
                 <Stack direction="row" alignItems="center" spacing={1} mb={3}>
                   <ZapIcon sx={{ color: 'warning.main' }} />
                   <Typography variant="h6" fontWeight={600} color="text.primary">
-                    Oportunidades de Cross-Sell
+                    Oportunidades
                   </Typography>
                 </Stack>
 
@@ -546,12 +466,7 @@ export default function RecommendationSystem() {
                       p: 2, 
                       bgcolor: 'rgba(255, 255, 255, 0.03)', 
                       border: '1px solid rgba(255, 255, 255, 0.05)',
-                      borderRadius: 1.5,
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        bgcolor: 'rgba(255, 255, 255, 0.05)',
-                        borderColor: 'rgba(245, 158, 11, 0.5)'
-                      }
+                      borderRadius: 1.5
                     }}>
                       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
                         <Typography variant="body1" fontWeight={600} color="text.primary">
@@ -579,12 +494,9 @@ export default function RecommendationSystem() {
                       </Stack>
 
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Stack direction="row" alignItems="center" spacing={0.5}>
-                          <UsersIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                          <Typography variant="caption" color="text.secondary">
-                            {opp.conversions} conversiones
-                          </Typography>
-                        </Stack>
+                        <Typography variant="caption" color="text.secondary">
+                          {opp.conversions} conversiones
+                        </Typography>
                         <Button 
                           size="small"
                           variant="outlined"
@@ -592,27 +504,14 @@ export default function RecommendationSystem() {
                             borderColor: 'rgba(255, 255, 255, 0.2)',
                             color: 'text.primary',
                             textTransform: 'none',
-                            fontSize: 11,
-                            '&:hover': {
-                              borderColor: 'rgba(255, 255, 255, 0.3)',
-                              bgcolor: 'rgba(255, 255, 255, 0.05)'
-                            }
+                            fontSize: 11
                           }}
                         >
-                          Ver Detalles
+                          Ver
                         </Button>
                       </Stack>
                     </Paper>
                   ))}
-
-                  {recommendationData.crossSellOpportunities.length === 0 && (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <ZapIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        No hay oportunidades detectadas
-                      </Typography>
-                    </Box>
-                  )}
                 </Stack>
               </Paper>
             </Grid>
@@ -623,7 +522,7 @@ export default function RecommendationSystem() {
             <Stack direction="row" alignItems="center" spacing={1} mb={3}>
               <TrendingUpIcon sx={{ color: 'success.main' }} />
               <Typography variant="h6" fontWeight={600} color="text.primary">
-                Combinaciones Más Vendidas
+                Combinaciones Populares
               </Typography>
             </Stack>
             <ResponsiveContainer width="100%" height={300}>
@@ -640,8 +539,8 @@ export default function RecommendationSystem() {
                   }}
                 />
                 <Legend />
-                <Bar dataKey="sales" fill="#10B981" name="Ventas" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="revenue" fill="#4F7FFF" name="Ingresos ($)" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="sales" fill="#10B981" name="Ventas" />
+                <Bar dataKey="revenue" fill="#4F7FFF" name="Ingresos" />
               </BarChart>
             </ResponsiveContainer>
           </Paper>
