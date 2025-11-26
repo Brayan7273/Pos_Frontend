@@ -38,7 +38,7 @@ api.interceptors.response.use(
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
       // Redirigir a login si no está autenticado
-      window.location.href = '/login';
+      window.location.href = '/home';
     }
     
     return Promise.reject(error);
