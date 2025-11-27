@@ -11,7 +11,9 @@ import {
   Grid,
   MenuItem,
   Alert,
-  Container
+  Container,
+  InputAdornment,
+  Tooltip
 } from "@mui/material"
 import {
   Save,
@@ -20,9 +22,135 @@ import {
   AttachMoney,
   BarChart,
   Category,
-  Add
+  Add,
+  Warning,
+  CheckCircle,
+  Info
 } from "@mui/icons-material"
 import api from '../services/api';
+
+// Reglas de validación centralizadas
+const validationRules = {
+  Name: {
+    required: true,
+    minLength: 2,
+    maxLength: 100,
+    pattern: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\-\&\.\(\)]+$/,
+    message: {
+      required: 'El nombre es requerido',
+      minLength: 'Mínimo 2 caracteres',
+      maxLength: 'Máximo 100 caracteres',
+      pattern: 'Solo letras, números, espacios y los caracteres - & . ( )'
+    }
+  },
+  Code: {
+    required: true,
+    minLength: 3,
+    maxLength: 50,
+    pattern: /^[A-Z0-9\-_]+$/,
+    message: {
+      required: 'El código es requerido',
+      minLength: 'Mínimo 3 caracteres',
+      maxLength: 'Máximo 50 caracteres',
+      pattern: 'Solo mayúsculas, números, guiones y guiones bajos'
+    }
+  },
+  Barcode: {
+    required: false,
+    pattern: /^[0-9]{8,14}$|^$/,
+    message: {
+      pattern: 'Código de barras inválido (8-14 dígitos)'
+    }
+  },
+  Category: {
+    required: true,
+    message: {
+      required: 'La categoría es requerida'
+    }
+  },
+  Brand: {
+    required: false,
+    maxLength: 50,
+    pattern: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\-\.]*$/,
+    message: {
+      maxLength: 'Máximo 50 caracteres',
+      pattern: 'Solo letras, números, espacios, guiones y puntos'
+    }
+  },
+  Description: {
+    required: false,
+    maxLength: 500,
+    message: {
+      maxLength: 'Máximo 500 caracteres'
+    }
+  },
+  CostPrice: {
+    required: false,
+    min: 0,
+    max: 9999999.99,
+    message: {
+      min: 'El costo no puede ser negativo',
+      max: 'El costo no puede exceder 9,999,999.99'
+    }
+  },
+  Price: {
+    required: true,
+    min: 0.01,
+    max: 9999999.99,
+    message: {
+      required: 'El precio de venta es requerido',
+      min: 'El precio debe ser mayor a 0',
+      max: 'El precio no puede exceder 9,999,999.99'
+    }
+  },
+  Current_Stock: {
+    required: false,
+    min: 0,
+    max: 999999,
+    message: {
+      min: 'El stock no puede ser negativo',
+      max: 'El stock no puede exceder 999,999'
+    }
+  },
+  Minimum_Stock: {
+    required: false,
+    min: 0,
+    max: 999999,
+    message: {
+      min: 'El stock mínimo no puede ser negativo',
+      max: 'El stock mínimo no puede exceder 999,999'
+    }
+  },
+  Maximum_Stock: {
+    required: false,
+    min: 0,
+    max: 999999,
+    message: {
+      min: 'El stock máximo no puede ser negativo',
+      max: 'El stock máximo no puede exceder 999,999'
+    }
+  },
+  TaxRate: {
+    required: true,
+    message: {
+      required: 'La tasa de impuesto es requerida'
+    }
+  },
+  Supplier: {
+    required: false,
+    maxLength: 100,
+    message: {
+      maxLength: 'Máximo 100 caracteres'
+    }
+  },
+  Location: {
+    required: false,
+    maxLength: 100,
+    message: {
+      maxLength: 'Máximo 100 caracteres'
+    }
+  }
+};
 
 export default function ProductForm() {
   const navigate = useNavigate()
@@ -51,6 +179,8 @@ export default function ProductForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [errors, setErrors] = useState({})
+  const [touched, setTouched] = useState({})
 
   const categories = ["Bebidas", "Panadería", "Lácteos", "Granos", "Limpieza", "Snacks", "Abarrotes", "Electrónica", "Accesorios", "Oficina"]
   const units = ["pz", "kg", "lt", "m", "caja", "paquete"]
@@ -77,35 +207,144 @@ export default function ProductForm() {
     }
   }, [productToEdit])
 
+  // Función de validación de campos
+  const validateField = (name, value) => {
+    const rules = validationRules[name];
+    if (!rules) return '';
+
+    // Validación de campo requerido
+    if (rules.required && (!value || value.toString().trim() === '')) {
+      return rules.message.required;
+    }
+
+    // Si el campo no es requerido y está vacío, no validar
+    if (!rules.required && (!value || value.toString().trim() === '')) {
+      return '';
+    }
+
+    // Validación de longitud mínima
+    if (rules.minLength && value.length < rules.minLength) {
+      return rules.message.minLength;
+    }
+
+    // Validación de longitud máxima
+    if (rules.maxLength && value.length > rules.maxLength) {
+      return rules.message.maxLength;
+    }
+
+    // Validación de patrón
+    if (rules.pattern && !rules.pattern.test(value)) {
+      return rules.message.pattern;
+    }
+
+    // Validación de valores numéricos mínimos
+    if (rules.min !== undefined && parseFloat(value) < rules.min) {
+      return rules.message.min;
+    }
+
+    // Validación de valores numéricos máximos
+    if (rules.max !== undefined && parseFloat(value) > rules.max) {
+      return rules.message.max;
+    }
+
+    return '';
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched(prev => ({ ...prev, [name]: true }));
+    
+    const error = validateField(name, value);
+    setErrors(prev => ({ ...prev, [name]: error }));
+  };
+
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-    if (error) setError("")
-    if (success) setSuccess("")
+    const { name, value } = e.target;
+    
+    // Limpieza de datos según el campo
+    let cleanedValue = value;
+    
+    if (name === 'Name' || name === 'Brand') {
+      // Permitir solo letras, números, espacios y algunos caracteres especiales
+      cleanedValue = value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\-\&\.\(\)]/g, '');
+    } else if (name === 'Code') {
+      // Convertir a mayúsculas y permitir solo caracteres válidos
+      cleanedValue = value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '');
+    } else if (name === 'Barcode') {
+      // Permitir solo números
+      cleanedValue = value.replace(/[^0-9]/g, '');
+    } else if (['CostPrice', 'Price', 'TaxRate'].includes(name)) {
+      // Validar formato decimal
+      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+        cleanedValue = value;
+      } else {
+        return; // No actualizar si no es un número válido
+      }
+    } else if (['Current_Stock', 'Minimum_Stock', 'Maximum_Stock'].includes(name)) {
+      // Permitir solo números enteros
+      cleanedValue = value.replace(/[^0-9]/g, '');
+    }
+    
+    setFormData(prev => ({ ...prev, [name]: cleanedValue }));
+
+    // Limpiar errores generales
+    if (error) setError("");
+    if (success) setSuccess("");
+
+    // Validación en tiempo real si el campo ya fue tocado
+    if (touched[name]) {
+      const error = validateField(name, cleanedValue);
+      setErrors(prev => ({ ...prev, [name]: error }));
+    }
   }
 
   const validateForm = () => {
-    if (!formData.Name.trim()) {
-      setError("El nombre es requerido")
-      return false
+    const newErrors = {};
+    const newTouched = {};
+    
+    // Validar todos los campos requeridos
+    Object.keys(validationRules).forEach(field => {
+      newTouched[field] = true;
+      const error = validateField(field, formData[field]);
+      if (error) {
+        newErrors[field] = error;
+      }
+    });
+    
+    // Validaciones de negocio adicionales
+    if (formData.CostPrice && formData.Price) {
+      const cost = parseFloat(formData.CostPrice);
+      const price = parseFloat(formData.Price);
+      
+      if (cost >= price) {
+        newErrors.CostPrice = 'El costo debe ser menor al precio de venta';
+        newErrors.Price = 'El precio de venta debe ser mayor al costo';
+      }
     }
-    if (!formData.Code.trim()) {
-      setError("El código es requerido")
-      return false
+
+    if (formData.Minimum_Stock && formData.Maximum_Stock) {
+      const minStock = parseInt(formData.Minimum_Stock);
+      const maxStock = parseInt(formData.Maximum_Stock);
+      
+      if (minStock >= maxStock) {
+        newErrors.Minimum_Stock = 'El stock mínimo debe ser menor al máximo';
+        newErrors.Maximum_Stock = 'El stock máximo debe ser mayor al mínimo';
+      }
     }
-    if (!formData.Category.trim()) {
-      setError("La categoría es requerida")
-      return false
+
+    if (formData.Current_Stock && formData.Maximum_Stock) {
+      const currentStock = parseInt(formData.Current_Stock);
+      const maxStock = parseInt(formData.Maximum_Stock);
+      
+      if (currentStock > maxStock) {
+        newErrors.Current_Stock = 'El stock actual no puede exceder el stock máximo';
+      }
     }
-    if (!formData.Price || parseFloat(formData.Price) <= 0) {
-      setError("El precio de venta debe ser mayor a 0")
-      return false
-    }
-    if (formData.CostPrice && formData.Price && parseFloat(formData.CostPrice) >= parseFloat(formData.Price)) {
-      setError("El costo debe ser menor al precio de venta")
-      return false
-    }
-    return true
+    
+    setTouched(newTouched);
+    setErrors(newErrors);
+    
+    return Object.keys(newErrors).length === 0;
   }
 
   const resetForm = () => {
@@ -128,10 +367,15 @@ export default function ProductForm() {
     })
     setError("")
     setSuccess("")
+    setErrors({})
+    setTouched({})
   }
 
   const handleSubmit = async (action = "save") => {
-    if (!validateForm()) return
+    if (!validateForm()) {
+      setError("Por favor corrige los errores en el formulario");
+      return;
+    }
 
     setLoading(true)
     setError("")
@@ -197,6 +441,54 @@ export default function ProductForm() {
     if (cost === 0 || sale === 0) return "0.00"
     return (((sale - cost) / sale) * 100).toFixed(2)
   }
+
+  const calculateProfit = () => {
+    const cost = parseFloat(formData.CostPrice) || 0
+    const sale = parseFloat(formData.Price) || 0
+    return (sale - cost).toFixed(2)
+  }
+
+  // Función para obtener propiedades de ayuda del campo
+  const getFieldHelperText = (name) => {
+    const rules = validationRules[name];
+    if (!rules) return '';
+    
+    const helperTexts = [];
+    
+    if (rules.required) {
+      helperTexts.push('Requerido');
+    }
+    
+    if (rules.minLength && rules.maxLength) {
+      helperTexts.push(`${rules.minLength}-${rules.maxLength} caracteres`);
+    } else if (rules.minLength) {
+      helperTexts.push(`Mín. ${rules.minLength} caracteres`);
+    } else if (rules.maxLength) {
+      helperTexts.push(`Máx. ${rules.maxLength} caracteres`);
+    }
+
+    if (rules.min !== undefined && rules.max !== undefined) {
+      helperTexts.push(`${rules.min} - ${rules.max}`);
+    }
+    
+    return helperTexts.join(' • ');
+  };
+
+  // Función para renderizar el icono de estado del campo
+  const renderFieldStatus = (name) => {
+    if (!touched[name]) return null;
+    
+    if (errors[name]) {
+      return (
+        <Tooltip title={errors[name]}>
+          <Warning sx={{ color: "#EF4444", fontSize: 18 }} />
+        </Tooltip>
+      );
+    } else if (formData[name]) {
+      return <CheckCircle sx={{ color: "#10B981", fontSize: 18 }} />;
+    }
+    return null;
+  };
 
   const isEditMode = Boolean(productToEdit)
 
@@ -281,102 +573,132 @@ export default function ProductForm() {
 
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      Nombre del Producto *
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        Nombre del Producto *
+                      </Typography>
+                      {renderFieldStatus('Name')}
+                    </Box>
                     <TextField
                       fullWidth
                       name="Name"
                       value={formData.Name}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.Name}
+                      helperText={errors.Name || getFieldHelperText('Name')}
                       placeholder="Ej: Laptop HP ProBook"
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.Name ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.Name ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.Name ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                     />
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      Código *
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        Código *
+                      </Typography>
+                      {renderFieldStatus('Code')}
+                    </Box>
                     <TextField
                       fullWidth
                       name="Code"
                       value={formData.Code}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.Code}
+                      helperText={errors.Code || getFieldHelperText('Code')}
                       placeholder="Ej: LAP-001"
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.Code ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.Code ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.Code ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                     />
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      Código de Barras
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        Código de Barras
+                      </Typography>
+                      {renderFieldStatus('Barcode')}
+                    </Box>
                     <TextField
                       fullWidth
                       name="Barcode"
                       value={formData.Barcode}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.Barcode}
+                      helperText={errors.Barcode || getFieldHelperText('Barcode')}
                       placeholder="7501234567890"
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.Barcode ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.Barcode ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.Barcode ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                     />
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      Marca
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        Marca
+                      </Typography>
+                      {renderFieldStatus('Brand')}
+                    </Box>
                     <TextField
                       fullWidth
                       name="Brand"
                       value={formData.Brand}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.Brand}
+                      helperText={errors.Brand || getFieldHelperText('Brand')}
                       placeholder="Ej: HP"
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.Brand ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.Brand ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.Brand ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                     />
                   </Grid>
 
                   <Grid item xs={12}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      Descripción
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        Descripción
+                      </Typography>
+                      {renderFieldStatus('Description')}
+                    </Box>
                     <TextField
                       fullWidth
                       name="Description"
                       value={formData.Description}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.Description}
+                      helperText={`${formData.Description.length}/500 • ${getFieldHelperText('Description')}`}
                       placeholder="Descripción detallada del producto..."
                       multiline
                       rows={3}
@@ -384,9 +706,9 @@ export default function ProductForm() {
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.Description ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.Description ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.Description ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                     />
@@ -414,68 +736,88 @@ export default function ProductForm() {
 
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={4}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      Precio de Costo
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        Precio de Costo
+                      </Typography>
+                      {renderFieldStatus('CostPrice')}
+                    </Box>
                     <TextField
                       fullWidth
                       name="CostPrice"
                       type="number"
                       value={formData.CostPrice}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.CostPrice}
+                      helperText={errors.CostPrice || getFieldHelperText('CostPrice')}
                       placeholder="0.00"
                       InputProps={{
+                        startAdornment: <InputAdornment position="start">$</InputAdornment>,
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.CostPrice ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.CostPrice ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.CostPrice ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                     />
                   </Grid>
 
                   <Grid item xs={12} sm={4}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      Precio de Venta *
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        Precio de Venta *
+                      </Typography>
+                      {renderFieldStatus('Price')}
+                    </Box>
                     <TextField
                       fullWidth
                       name="Price"
                       type="number"
                       value={formData.Price}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.Price}
+                      helperText={errors.Price || getFieldHelperText('Price')}
                       placeholder="0.00"
                       InputProps={{
+                        startAdornment: <InputAdornment position="start">$</InputAdornment>,
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.Price ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.Price ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.Price ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                     />
                   </Grid>
 
                   <Grid item xs={12} sm={4}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      IVA (%)
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        IVA (%) *
+                      </Typography>
+                      {renderFieldStatus('TaxRate')}
+                    </Box>
                     <TextField
                       fullWidth
                       select
                       name="TaxRate"
                       value={formData.TaxRate}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.TaxRate}
+                      helperText={errors.TaxRate || getFieldHelperText('TaxRate')}
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.TaxRate ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.TaxRate ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.TaxRate ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                       SelectProps={{
@@ -500,7 +842,7 @@ export default function ProductForm() {
                   </Grid>
                 </Grid>
 
-                {formData.CostPrice && formData.Price && (
+                {(formData.CostPrice || formData.Price) && (
                   <Box
                     sx={{
                       mt: 2,
@@ -510,14 +852,24 @@ export default function ProductForm() {
                       borderRadius: 2
                     }}
                   >
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <Typography sx={{ color: "#D1D5DB" }}>
-                        Margen de Ganancia:
-                      </Typography>
-                      <Typography variant="h5" sx={{ color: "#60A5FA", fontWeight: "bold" }}>
-                        {calculateMargin()}%
-                      </Typography>
-                    </Box>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" sx={{ color: "#D1D5DB" }}>
+                          Margen de Ganancia:
+                        </Typography>
+                        <Typography variant="h6" sx={{ color: "#60A5FA", fontWeight: "bold" }}>
+                          {calculateMargin()}%
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" sx={{ color: "#D1D5DB" }}>
+                          Ganancia por Unidad:
+                        </Typography>
+                        <Typography variant="h6" sx={{ color: "#10B981", fontWeight: "bold" }}>
+                          ${calculateProfit()}
+                        </Typography>
+                      </Grid>
+                    </Grid>
                   </Box>
                 )}
               </CardContent>
@@ -541,69 +893,87 @@ export default function ProductForm() {
 
                 <Grid container spacing={2}>
                   <Grid item xs={6} sm={3}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      Stock Actual
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        Stock Actual
+                      </Typography>
+                      {renderFieldStatus('Current_Stock')}
+                    </Box>
                     <TextField
                       fullWidth
                       name="Current_Stock"
                       type="number"
                       value={formData.Current_Stock}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.Current_Stock}
+                      helperText={errors.Current_Stock || getFieldHelperText('Current_Stock')}
                       placeholder="0"
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.Current_Stock ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.Current_Stock ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.Current_Stock ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                     />
                   </Grid>
 
                   <Grid item xs={6} sm={3}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      Stock Mínimo
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        Stock Mínimo
+                      </Typography>
+                      {renderFieldStatus('Minimum_Stock')}
+                    </Box>
                     <TextField
                       fullWidth
                       name="Minimum_Stock"
                       type="number"
                       value={formData.Minimum_Stock}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.Minimum_Stock}
+                      helperText={errors.Minimum_Stock || getFieldHelperText('Minimum_Stock')}
                       placeholder="0"
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.Minimum_Stock ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.Minimum_Stock ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.Minimum_Stock ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                     />
                   </Grid>
 
                   <Grid item xs={6} sm={3}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      Stock Máximo
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        Stock Máximo
+                      </Typography>
+                      {renderFieldStatus('Maximum_Stock')}
+                    </Box>
                     <TextField
                       fullWidth
                       name="Maximum_Stock"
                       type="number"
                       value={formData.Maximum_Stock}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.Maximum_Stock}
+                      helperText={errors.Maximum_Stock || getFieldHelperText('Maximum_Stock')}
                       placeholder="0"
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.Maximum_Stock ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.Maximum_Stock ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.Maximum_Stock ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                     />
@@ -650,44 +1020,56 @@ export default function ProductForm() {
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      Proveedor
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        Proveedor
+                      </Typography>
+                      {renderFieldStatus('Supplier')}
+                    </Box>
                     <TextField
                       fullWidth
                       name="Supplier"
                       value={formData.Supplier}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.Supplier}
+                      helperText={errors.Supplier || getFieldHelperText('Supplier')}
                       placeholder="Nombre del proveedor"
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.Supplier ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.Supplier ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.Supplier ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                     />
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                      Ubicación en Almacén
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                        Ubicación en Almacén
+                      </Typography>
+                      {renderFieldStatus('Location')}
+                    </Box>
                     <TextField
                       fullWidth
                       name="Location"
                       value={formData.Location}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={!!errors.Location}
+                      helperText={errors.Location || getFieldHelperText('Location')}
                       placeholder="Ej: Pasillo 3, Estante B"
                       InputProps={{
                         sx: {
                           bgcolor: "#1E293B",
                           color: "#FFFFFF",
-                          "& fieldset": { borderColor: "#334155" },
-                          "&:hover fieldset": { borderColor: "#475569" },
-                          "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                          "& fieldset": { borderColor: errors.Location ? "#EF4444" : "#334155" },
+                          "&:hover fieldset": { borderColor: errors.Location ? "#EF4444" : "#475569" },
+                          "&.Mui-focused fieldset": { borderColor: errors.Location ? "#EF4444" : "#3B82F6" }
                         }
                       }}
                     />
@@ -716,22 +1098,28 @@ export default function ProductForm() {
                     </Typography>
                   </Box>
 
-                  <Typography variant="body2" sx={{ color: "#D1D5DB", mb: 1, fontWeight: 500 }}>
-                    Categoría *
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500 }}>
+                      Categoría *
+                    </Typography>
+                    {renderFieldStatus('Category')}
+                  </Box>
                   <TextField
                     fullWidth
                     select
                     name="Category"
                     value={formData.Category}
                     onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={!!errors.Category}
+                    helperText={errors.Category || getFieldHelperText('Category')}
                     InputProps={{
                       sx: {
                         bgcolor: "#1E293B",
                         color: "#FFFFFF",
-                        "& fieldset": { borderColor: "#334155" },
-                        "&:hover fieldset": { borderColor: "#475569" },
-                        "&.Mui-focused fieldset": { borderColor: "#3B82F6" }
+                        "& fieldset": { borderColor: errors.Category ? "#EF4444" : "#334155" },
+                        "&:hover fieldset": { borderColor: errors.Category ? "#EF4444" : "#475569" },
+                        "&.Mui-focused fieldset": { borderColor: errors.Category ? "#EF4444" : "#3B82F6" }
                       }
                     }}
                     SelectProps={{
@@ -765,7 +1153,7 @@ export default function ProductForm() {
                   variant="contained"
                   size="large"
                   onClick={() => handleSubmit("save")}
-                  disabled={loading}
+                  disabled={loading || Object.keys(errors).some(key => errors[key])}
                   startIcon={<Save />}
                   sx={{
                     bgcolor: "#2563EB",
@@ -791,7 +1179,7 @@ export default function ProductForm() {
                     variant="outlined"
                     size="large"
                     onClick={handleSaveAndNew}
-                    disabled={loading}
+                    disabled={loading || Object.keys(errors).some(key => errors[key])}
                     startIcon={<Add />}
                     sx={{
                       borderColor: "#10B981",

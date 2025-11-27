@@ -80,6 +80,56 @@ const darkTheme = createTheme({
   },
 });
 
+// Utilidades de validación
+const validationRules = {
+  name: {
+    required: true,
+    minLength: 2,
+    maxLength: 100,
+    pattern: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\&\.]+$/,
+    message: {
+      required: 'El nombre es requerido',
+      minLength: 'El nombre debe tener al menos 2 caracteres',
+      maxLength: 'El nombre no puede exceder 100 caracteres',
+      pattern: 'El nombre solo puede contener letras, espacios y los caracteres - & .'
+    }
+  },
+  contact: {
+    required: true,
+    minLength: 2,
+    maxLength: 100,
+    pattern: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\.]+$/,
+    message: {
+      required: 'El contacto es requerido',
+      minLength: 'El contacto debe tener al menos 2 caracteres',
+      maxLength: 'El contacto no puede exceder 100 caracteres',
+      pattern: 'El contacto solo puede contener letras y espacios'
+    }
+  },
+  phone: {
+    required: true,
+    pattern: /^[\d\s\-\+\(\)]{7,20}$/,
+    message: {
+      required: 'El teléfono es requerido',
+      pattern: 'Formato de teléfono inválido (ej: +52 461 123 4567)'
+    }
+  },
+  email: {
+    required: false,
+    pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+    message: {
+      pattern: 'Formato de email inválido'
+    }
+  },
+  address: {
+    required: false,
+    maxLength: 255,
+    message: {
+      maxLength: 'La dirección no puede exceder 255 caracteres'
+    }
+  }
+};
+
 export default function Proveedores() {
   const [proveedores, setProveedores] = useState([]);
   const [filteredProveedores, setFilteredProveedores] = useState([]);
@@ -99,6 +149,7 @@ export default function Proveedores() {
   });
 
   const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
   // Cargar proveedores desde el backend
   const fetchProveedores = async () => {
@@ -162,6 +213,39 @@ export default function Proveedores() {
     setSnackbar({ open: true, message, severity });
   };
 
+  // Función de validación mejorada
+  const validateField = (name, value) => {
+    const rules = validationRules[name];
+    if (!rules) return '';
+
+    // Validación de campo requerido
+    if (rules.required && (!value || value.trim() === '')) {
+      return rules.message.required;
+    }
+
+    // Si el campo no es requerido y está vacío, no validar
+    if (!rules.required && (!value || value.trim() === '')) {
+      return '';
+    }
+
+    // Validación de longitud mínima
+    if (rules.minLength && value.length < rules.minLength) {
+      return rules.message.minLength;
+    }
+
+    // Validación de longitud máxima
+    if (rules.maxLength && value.length > rules.maxLength) {
+      return rules.message.maxLength;
+    }
+
+    // Validación de patrón
+    if (rules.pattern && !rules.pattern.test(value)) {
+      return rules.message.pattern;
+    }
+
+    return '';
+  };
+
   const handleOpenDialog = (proveedor = null) => {
     if (proveedor) {
       setFormData({
@@ -183,6 +267,7 @@ export default function Proveedores() {
       setEditingId(null);
     }
     setErrors({});
+    setTouched({});
     setOpenDialog(true);
   };
 
@@ -197,34 +282,69 @@ export default function Proveedores() {
       address: ''
     });
     setErrors({});
+    setTouched({});
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched(prev => ({ ...prev, [name]: true }));
+    
+    const error = validateField(name, value);
+    setErrors(prev => ({ ...prev, [name]: error }));
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // Limpieza de datos según el campo
+    let cleanedValue = value;
+    if (name === 'name' || name === 'contact') {
+      // Permitir solo letras, espacios y algunos caracteres especiales
+      cleanedValue = value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\&\.]/g, '');
+    } else if (name === 'phone') {
+      // Permitir solo números, espacios y caracteres de teléfono
+      cleanedValue = value.replace(/[^\d\s\-\+\(\)]/g, '');
+    } else if (name === 'email') {
+      // Convertir a minúsculas para email
+      cleanedValue = value.toLowerCase();
+    }
+    
     setFormData({
       ...formData,
-      [name]: value
+      [name]: cleanedValue
     });
-    if (errors[name]) {
-      setErrors({
-        ...errors,
-        [name]: ''
-      });
+
+    // Validación en tiempo real si el campo ya fue tocado
+    if (touched[name]) {
+      const error = validateField(name, cleanedValue);
+      setErrors(prev => ({ ...prev, [name]: error }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = 'El nombre es requerido';
-    if (!formData.phone.trim()) newErrors.phone = 'El teléfono es requerido';
-    if (!formData.contact.trim()) newErrors.contact = 'El contacto es requerido';
+    const newTouched = {};
     
+    // Marcar todos los campos como tocados y validar
+    Object.keys(validationRules).forEach(field => {
+      newTouched[field] = true;
+      const error = validateField(field, formData[field]);
+      if (error) {
+        newErrors[field] = error;
+      }
+    });
+    
+    setTouched(newTouched);
     setErrors(newErrors);
+    
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      showSnackbar('Por favor corrige los errores en el formulario', 'error');
+      return;
+    }
 
     try {
       if (editingId) {
@@ -243,7 +363,8 @@ export default function Proveedores() {
       
     } catch (err) {
       console.error('Error guardando proveedor:', err);
-      showSnackbar('Error al guardar el proveedor', 'error');
+      const errorMessage = err.response?.data?.message || 'Error al guardar el proveedor';
+      showSnackbar(errorMessage, 'error');
     }
   };
 
@@ -262,6 +383,28 @@ export default function Proveedores() {
 
   const generateSupplierNumber = (id) => {
     return `PROV-${String(id).padStart(3, '0')}`;
+  };
+
+  // Función para obtener propiedades de ayuda del campo
+  const getFieldHelperText = (name) => {
+    const rules = validationRules[name];
+    if (!rules) return '';
+    
+    const helperTexts = [];
+    
+    if (rules.required) {
+      helperTexts.push('Requerido');
+    }
+    
+    if (rules.minLength && rules.maxLength) {
+      helperTexts.push(`${rules.minLength}-${rules.maxLength} caracteres`);
+    } else if (rules.minLength) {
+      helperTexts.push(`Mín. ${rules.minLength} caracteres`);
+    } else if (rules.maxLength) {
+      helperTexts.push(`Máx. ${rules.maxLength} caracteres`);
+    }
+    
+    return helperTexts.join(' • ');
   };
 
   if (loading) {
@@ -522,8 +665,9 @@ export default function Proveedores() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   error={!!errors.name}
-                  helperText={errors.name}
+                  helperText={errors.name || getFieldHelperText('name')}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -539,8 +683,9 @@ export default function Proveedores() {
                   name="contact"
                   value={formData.contact}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   error={!!errors.contact}
-                  helperText={errors.contact}
+                  helperText={errors.contact || getFieldHelperText('contact')}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -556,8 +701,10 @@ export default function Proveedores() {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   error={!!errors.phone}
-                  helperText={errors.phone}
+                  helperText={errors.phone || getFieldHelperText('phone')}
+                  placeholder="+52 461 123 4567"
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -574,8 +721,10 @@ export default function Proveedores() {
                   type="email"
                   value={formData.email}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   error={!!errors.email}
-                  helperText={errors.email}
+                  helperText={errors.email || getFieldHelperText('email')}
+                  placeholder="proveedor@empresa.com"
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -593,8 +742,9 @@ export default function Proveedores() {
                   rows={3}
                   value={formData.address}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   error={!!errors.address}
-                  helperText={errors.address}
+                  helperText={errors.address || getFieldHelperText('address')}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 2 }}>
@@ -626,6 +776,7 @@ export default function Proveedores() {
               <Button
                 onClick={handleSubmit}
                 variant="contained"
+                disabled={Object.keys(errors).some(key => errors[key])}
                 sx={{ 
                   textTransform: 'none',
                   borderRadius: 2,
@@ -633,6 +784,10 @@ export default function Proveedores() {
                   bgcolor: 'primary.main',
                   '&:hover': {
                     bgcolor: 'primary.dark'
+                  },
+                  '&.Mui-disabled': {
+                    bgcolor: 'rgba(79, 127, 255, 0.3)',
+                    color: 'rgba(255, 255, 255, 0.5)'
                   }
                 }}
               >
