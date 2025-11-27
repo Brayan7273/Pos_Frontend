@@ -182,8 +182,10 @@ export default function ProductForm() {
   const [errors, setErrors] = useState({})
   const [touched, setTouched] = useState({})
 
-  const categories = ["Bebidas", "Panadería", "Lácteos", "Granos", "Limpieza", "Snacks", "Abarrotes", "Electrónica", "Accesorios", "Oficina"]
-  const units = ["pz", "kg", "lt", "m", "caja", "paquete"]
+  // ** DATOS DE PRUEBA ELIMINADOS, ARREGLOS VACÍOS **
+  const categories = [] // [] Lista vacía intencionalmente
+  const units = [] // [] Lista vacía intencionalmente
+  // ** FIN DE ELIMINACIÓN **
 
   useEffect(() => {
     if (productToEdit) {
@@ -199,13 +201,14 @@ export default function ProductForm() {
         Current_Stock: productToEdit.Current_Stock?.toString() || "",
         Minimum_Stock: productToEdit.Minimum_Stock?.toString() || "",
         Maximum_Stock: productToEdit.Maximum_Stock?.toString() || "",
-        Unit: productToEdit.Unit || "pz",
+        // Ajustar el valor por defecto si la unidad guardada no está en la lista actual de units
+        Unit: units.includes(productToEdit.Unit) ? productToEdit.Unit : "pz", 
         TaxRate: productToEdit.TaxRate?.toString() || "16",
         Supplier: productToEdit.Supplier || "",
         Location: productToEdit.Location || "",
       })
     }
-  }, [productToEdit])
+  }, [productToEdit, units]) // Se agrega 'units' como dependencia para ajustar el valor en modo edición si es necesario
 
   // Función de validación de campos
   const validateField = (name, value) => {
@@ -213,6 +216,7 @@ export default function ProductForm() {
     if (!rules) return '';
 
     // Validación de campo requerido
+    // *Aviso*: Si 'Category' es requerido y la lista está vacía, el error 'La categoría es requerida' se disparará
     if (rules.required && (!value || value.toString().trim() === '')) {
       return rules.message.required;
     }
@@ -360,7 +364,7 @@ export default function ProductForm() {
       Current_Stock: "",
       Minimum_Stock: "",
       Maximum_Stock: "",
-      Unit: "pz",
+      Unit: units.length > 0 ? units[0] : "pz", // Asegurar un valor por defecto si hay unidades
       TaxRate: "16",
       Supplier: "",
       Location: "",
@@ -376,6 +380,24 @@ export default function ProductForm() {
       setError("Por favor corrige los errores en el formulario");
       return;
     }
+
+    // ** Lógica para evitar guardado si listas requeridas están vacías
+    if (categories.length === 0) {
+      setError("No se puede guardar: La lista de categorías está vacía. Debes configurar al menos una.");
+      setLoading(false);
+      return;
+    }
+    
+    // Asignar un valor por defecto si 'units' está vacío, aunque el campo no es requerido
+    if (units.length === 0) {
+        // En este caso, 'Unit' tiene un valor por defecto en useState y useEffect ("pz"), pero 
+        // si queremos forzar que el usuario sepa que tiene que configurar unidades:
+        // setError("No se puede guardar: La lista de unidades está vacía. Favor de configurar.");
+        // setLoading(false);
+        // return;
+        // Se mantiene el comportamiento por defecto ("pz") si units está vacío, ya que Unit no es 'required' en validationRules.
+    }
+
 
     setLoading(true)
     setError("")
@@ -491,6 +513,10 @@ export default function ProductForm() {
   };
 
   const isEditMode = Boolean(productToEdit)
+  
+  // Mensajes de aviso si las listas están vacías
+  const showCategoryWarning = categories.length === 0 && !isEditMode;
+  const showUnitWarning = units.length === 0 && !isEditMode;
 
   return (
     <Box
@@ -520,7 +546,7 @@ export default function ProductForm() {
               {isEditMode ? "Editar Producto" : "Nuevo Producto"}
             </Typography>
             <Typography variant="body2" sx={{ color: "#9CA3AF" }}>
-              {isEditMode ? `Editando: ${productToEdit.Name}` : "Completa la información del producto"}
+              {isEditMode ? `Editando: ${productToEdit?.Name || 'Producto'}` : "Completa la información del producto"}
             </Typography>
           </Box>
         </Box>
@@ -537,6 +563,28 @@ export default function ProductForm() {
           >
             Estás editando el producto: <strong>{productToEdit.Name}</strong> (Código: {productToEdit.Code})
           </Alert>
+        )}
+        
+        {/* Aviso si no hay categorías configuradas */}
+        {showCategoryWarning && (
+            <Alert 
+                severity="warning" 
+                sx={{ mb: 3 }}
+                icon={<Info />}
+            >
+                No hay categorías disponibles. La creación de productos **requiere** al menos una categoría.
+            </Alert>
+        )}
+
+        {/* Aviso si no hay unidades configuradas */}
+        {showUnitWarning && (
+            <Alert 
+                severity="info" 
+                sx={{ mb: 3 }}
+                icon={<Info />}
+            >
+                No hay unidades de medida disponibles. Se usará el valor por defecto: **pz** (pieza).
+            </Alert>
         )}
 
         {error && (
@@ -698,7 +746,7 @@ export default function ProductForm() {
                       onChange={handleChange}
                       onBlur={handleBlur}
                       error={!!errors.Description}
-                      helperText={`${formData.Description.length}/500 • ${getFieldHelperText('Description')}`}
+                      helperText={errors.Description || `${formData.Description.length}/500 • ${getFieldHelperText('Description')}`}
                       placeholder="Descripción detallada del producto..."
                       multiline
                       rows={3}
@@ -1013,9 +1061,16 @@ export default function ProductForm() {
                         }
                       }}
                     >
-                      {units.map(unit => (
-                        <MenuItem key={unit} value={unit}>{unit}</MenuItem>
-                      ))}
+                      {/* Lógica para unidades vacías */}
+                      {units.length === 0 ? (
+                        <MenuItem disabled value={formData.Unit}>
+                          {`No hay unidades configuradas. Usando: ${formData.Unit}`}
+                        </MenuItem>
+                      ) : (
+                        units.map(unit => (
+                          <MenuItem key={unit} value={unit}>{unit}</MenuItem>
+                        ))
+                      )}
                     </TextField>
                   </Grid>
 
@@ -1138,10 +1193,19 @@ export default function ProductForm() {
                       }
                     }}
                   >
-                    <MenuItem value="">Seleccionar...</MenuItem>
-                    {categories.map(cat => (
-                      <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                    ))}
+                    {/* Lógica para categorías vacías */}
+                    {categories.length === 0 ? (
+                      <MenuItem disabled value="">
+                        No hay opciones (debes configurarlas)
+                      </MenuItem>
+                    ) : (
+                      <>
+                        <MenuItem value="">Seleccionar...</MenuItem>
+                        {categories.map(cat => (
+                          <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                        ))}
+                      </>
+                    )}
                   </TextField>
                 </CardContent>
               </Card>
@@ -1153,7 +1217,7 @@ export default function ProductForm() {
                   variant="contained"
                   size="large"
                   onClick={() => handleSubmit("save")}
-                  disabled={loading || Object.keys(errors).some(key => errors[key])}
+                  disabled={loading || Object.keys(errors).some(key => errors[key]) || categories.length === 0}
                   startIcon={<Save />}
                   sx={{
                     bgcolor: "#2563EB",
@@ -1179,7 +1243,7 @@ export default function ProductForm() {
                     variant="outlined"
                     size="large"
                     onClick={handleSaveAndNew}
-                    disabled={loading || Object.keys(errors).some(key => errors[key])}
+                    disabled={loading || Object.keys(errors).some(key => errors[key]) || categories.length === 0}
                     startIcon={<Add />}
                     sx={{
                       borderColor: "#10B981",
@@ -1202,6 +1266,23 @@ export default function ProductForm() {
                   </Button>
                 )}
               </Box>
+              
+              {/* Bloque de información adicional para el usuario sobre las dependencias */}
+              {(categories.length === 0) && (
+                  <Card sx={{ bgcolor: "rgba(245, 158, 11, 0.1)", border: "1px solid #F59E0B", backdropFilter: "blur(20px)" }}>
+                      <CardContent>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Warning sx={{ color: "#F59E0B", fontSize: 20 }} />
+                              <Typography variant="body1" sx={{ color: "#FCD34D", fontWeight: 600 }}>
+                                  Atención
+                              </Typography>
+                          </Box>
+                          <Typography variant="body2" sx={{ color: "#FDE68A", mt: 1 }}>
+                              La creación y edición de productos requiere tener configurada la lista de categorías. Por favor, asegúrate de que tus listas de datos de apoyo (categorías, unidades) se carguen correctamente desde el backend.
+                          </Typography>
+                      </CardContent>
+                  </Card>
+              )}
             </Box>
           </Grid>
         </Grid>
