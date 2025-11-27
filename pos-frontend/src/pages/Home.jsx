@@ -91,21 +91,21 @@ export default function Dashboard() {
       icon: <PointOfSale sx={{ fontSize: 28 }} />,
       title: 'Punto de Venta',
       description: 'Iniciar nueva venta',
-      path: '/pos',
+      path: '/checkoutPage',
       color: '#6366f1'
     },
     {
       icon: <Store sx={{ fontSize: 28 }} />,
       title: 'Inventario',
       description: 'Gestionar productos',
-      path: '/inventory',
+      path: '/products',
       color: '#10b981'
     },
     {
       icon: <TrendingUp sx={{ fontSize: 28 }} />,
       title: 'Reportes',
       description: 'Ver análisis',
-      path: '/reports',
+      path: '/Reportes',
       color: '#f59e0b'
     }
   ];

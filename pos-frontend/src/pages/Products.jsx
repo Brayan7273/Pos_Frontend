@@ -376,40 +376,7 @@ export default function ProductsList() {
                 >
                   Filtros
                 </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<Download />}
-                  onClick={handleExport}
-                  sx={{
-                    bgcolor: "#1E293B",
-                    borderColor: "#334155",
-                    color: "#D1D5DB",
-                    "&:hover": { bgcolor: "#334155", borderColor: "#475569" },
-                    textTransform: "none"
-                  }}
-                >
-                  Exportar
-                </Button>
-                <Button
-                  variant="outlined"
-                  component="label"
-                  startIcon={<Upload />}
-                  sx={{
-                    bgcolor: "#1E293B",
-                    borderColor: "#334155",
-                    color: "#D1D5DB",
-                    "&:hover": { bgcolor: "#334155", borderColor: "#475569" },
-                    textTransform: "none"
-                  }}
-                >
-                  Importar
-                  <input
-                    type="file"
-                    hidden
-                    accept=".csv,.xlsx,.xls"
-                    onChange={handleImport}
-                  />
-                </Button>
+              
               </Box>
             </Box>
 
