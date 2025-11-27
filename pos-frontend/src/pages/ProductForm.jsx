@@ -152,6 +152,14 @@ const validationRules = {
   }
 };
 
+// ** LISTAS DE DATOS POR DEFECTO (Reinstaladas) **
+const defaultCategories = ["Bebidas", "Panadería", "Lácteos", "Granos", "Limpieza", "Snacks", "Abarrotes", "Electrónica", "Accesorios", "Oficina"];
+const defaultUnits = ["pz", "kg", "lt", "m", "caja", "paquete", "unidad", "galón"];
+// ** FIN DE DATOS POR DEFECTO **
+
+const OTHER_CATEGORY_VALUE = "OTHER_CUSTOM_CATEGORY";
+
+
 export default function ProductForm() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -181,19 +189,36 @@ export default function ProductForm() {
   const [success, setSuccess] = useState("")
   const [errors, setErrors] = useState({})
   const [touched, setTouched] = useState({})
+  
+  // Nuevo estado para la categoría personalizada si se selecciona "Otro"
+  const [customCategory, setCustomCategory] = useState("");
+  const [isCustomCategoryMode, setIsCustomCategoryMode] = useState(false);
 
-  // ** DATOS DE PRUEBA ELIMINADOS, ARREGLOS VACÍOS **
-  const categories = [] // [] Lista vacía intencionalmente
-  const units = [] // [] Lista vacía intencionalmente
-  // ** FIN DE ELIMINACIÓN **
+  // Usar los valores por defecto
+  const categories = defaultCategories; 
+  const units = defaultUnits; 
 
   useEffect(() => {
     if (productToEdit) {
+      let initialCategory = productToEdit.Category || "";
+      let customCatValue = "";
+      let isCustomMode = false;
+
+      // Si la categoría guardada NO está en la lista de categorías predefinidas, asumimos que es personalizada.
+      if (initialCategory && !categories.includes(initialCategory)) {
+        isCustomMode = true;
+        initialCategory = OTHER_CATEGORY_VALUE;
+        customCatValue = productToEdit.Category;
+      }
+      
+      setIsCustomCategoryMode(isCustomMode);
+      setCustomCategory(customCatValue);
+
       setFormData({
         Name: productToEdit.Name || "",
         Code: productToEdit.Code || "",
         Barcode: productToEdit.Barcode || "",
-        Category: productToEdit.Category || "",
+        Category: initialCategory,
         Brand: productToEdit.Brand || "",
         Description: productToEdit.Description || "",
         CostPrice: productToEdit.CostPrice?.toString() || "",
@@ -201,55 +226,74 @@ export default function ProductForm() {
         Current_Stock: productToEdit.Current_Stock?.toString() || "",
         Minimum_Stock: productToEdit.Minimum_Stock?.toString() || "",
         Maximum_Stock: productToEdit.Maximum_Stock?.toString() || "",
-        // Ajustar el valor por defecto si la unidad guardada no está en la lista actual de units
+        // Asegurar un valor válido si la unidad guardada no está en la lista actual
         Unit: units.includes(productToEdit.Unit) ? productToEdit.Unit : "pz", 
         TaxRate: productToEdit.TaxRate?.toString() || "16",
         Supplier: productToEdit.Supplier || "",
         Location: productToEdit.Location || "",
       })
     }
-  }, [productToEdit, units]) // Se agrega 'units' como dependencia para ajustar el valor en modo edición si es necesario
+  }, [productToEdit, categories, units])
+
 
   // Función de validación de campos
   const validateField = (name, value) => {
     const rules = validationRules[name];
     if (!rules) return '';
 
+    // Si la categoría es requerida y estamos en modo personalizado, el valor a validar
+    // es `customCategory`, no `formData.Category` (que es 'OTHER_CUSTOM_CATEGORY')
+    let valueToValidate = value;
+
+    if (name === 'Category' && isCustomCategoryMode) {
+      // Si estamos en modo personalizado, comprobamos que el campo de texto libre no esté vacío
+      if (rules.required && (!customCategory || customCategory.trim() === '')) {
+        return 'La categoría personalizada es requerida';
+      }
+      // No aplicamos otras reglas de validación (longitud/patrón) al valor simbólico 'OTHER_CUSTOM_CATEGORY'
+      if (value === OTHER_CATEGORY_VALUE) {
+        return '';
+      }
+    }
+    
     // Validación de campo requerido
-    // *Aviso*: Si 'Category' es requerido y la lista está vacía, el error 'La categoría es requerida' se disparará
-    if (rules.required && (!value || value.toString().trim() === '')) {
+    if (rules.required && (!valueToValidate || valueToValidate.toString().trim() === '')) {
       return rules.message.required;
     }
 
     // Si el campo no es requerido y está vacío, no validar
-    if (!rules.required && (!value || value.toString().trim() === '')) {
+    if (!rules.required && (!valueToValidate || valueToValidate.toString().trim() === '')) {
       return '';
     }
 
-    // Validación de longitud mínima
-    if (rules.minLength && value.length < rules.minLength) {
-      return rules.message.minLength;
-    }
+    // El resto de validaciones aplican al campo si no es la lógica de categoría personalizada
+    if (name !== 'Category') {
+      // Validación de longitud mínima
+      if (rules.minLength && valueToValidate.length < rules.minLength) {
+        return rules.message.minLength;
+      }
 
-    // Validación de longitud máxima
-    if (rules.maxLength && value.length > rules.maxLength) {
-      return rules.message.maxLength;
-    }
+      // Validación de longitud máxima
+      if (rules.maxLength && valueToValidate.length > rules.maxLength) {
+        return rules.message.maxLength;
+      }
 
-    // Validación de patrón
-    if (rules.pattern && !rules.pattern.test(value)) {
-      return rules.message.pattern;
-    }
+      // Validación de patrón
+      if (rules.pattern && !rules.pattern.test(valueToValidate)) {
+        return rules.message.pattern;
+      }
 
-    // Validación de valores numéricos mínimos
-    if (rules.min !== undefined && parseFloat(value) < rules.min) {
-      return rules.message.min;
-    }
+      // Validación de valores numéricos mínimos
+      if (rules.min !== undefined && parseFloat(valueToValidate) < rules.min) {
+        return rules.message.min;
+      }
 
-    // Validación de valores numéricos máximos
-    if (rules.max !== undefined && parseFloat(value) > rules.max) {
-      return rules.message.max;
+      // Validación de valores numéricos máximos
+      if (rules.max !== undefined && parseFloat(valueToValidate) > rules.max) {
+        return rules.message.max;
+      }
     }
+    
 
     return '';
   };
@@ -258,40 +302,96 @@ export default function ProductForm() {
     const { name, value } = e.target;
     setTouched(prev => ({ ...prev, [name]: true }));
     
+    // Forzar validación de CustomCategory en blur si estamos en ese modo
+    if (name === 'Category' && isCustomCategoryMode) {
+        const error = validateField(name, customCategory);
+        setErrors(prev => ({ ...prev, [name]: error }));
+        return;
+    }
+
     const error = validateField(name, value);
     setErrors(prev => ({ ...prev, [name]: error }));
   };
 
+  const handleCategoryChange = (e) => {
+    const value = e.target.value;
+    
+    setFormData(prev => ({ ...prev, Category: value }));
+    
+    if (value === OTHER_CATEGORY_VALUE) {
+      setIsCustomCategoryMode(true);
+      setCustomCategory(""); // Limpiar el campo de texto libre al seleccionar "Otro"
+      setErrors(prev => ({ ...prev, Category: 'La categoría personalizada es requerida' })); // Forzar error de requerido
+    } else {
+      setIsCustomCategoryMode(false);
+      setCustomCategory("");
+      // Validar la categoría seleccionada (normalmente solo para asegurar que no sea el valor vacío)
+      const error = validateField('Category', value);
+      setErrors(prev => ({ ...prev, Category: error }));
+    }
+    
+    if (error) setError("");
+    if (success) setSuccess("");
+  }
+  
+  const handleCustomCategoryChange = (e) => {
+      const value = e.target.value;
+      
+      // Aplicar reglas de limpieza y validación al valor de texto libre
+      let cleanedValue = value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\-\&\.\(\)]/g, '');
+
+      setCustomCategory(cleanedValue);
+      
+      if (touched.Category) {
+          // Revalidar el campo Category usando el nuevo valor de customCategory
+          const rules = validationRules.Name; // Reutilizar reglas de nombre para el campo libre
+          let error = '';
+          if (rules.required && (!cleanedValue || cleanedValue.trim() === '')) {
+            error = 'La categoría personalizada es requerida';
+          } else if (rules.maxLength && cleanedValue.length > rules.maxLength) {
+            error = rules.message.maxLength;
+          } else if (rules.pattern && !rules.pattern.test(cleanedValue)) {
+            error = rules.message.pattern;
+          }
+          
+          setErrors(prev => ({ ...prev, Category: error }));
+      }
+      
+      if (error) setError("");
+      if (success) setSuccess("");
+  }
+
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // Limpieza de datos según el campo
+    // Manejo especial si el campo cambiado es el de categoría
+    if (name === 'Category') {
+        handleCategoryChange(e);
+        return;
+    }
+    
+    // Limpieza de datos según el campo (lógica original)
     let cleanedValue = value;
     
     if (name === 'Name' || name === 'Brand') {
-      // Permitir solo letras, números, espacios y algunos caracteres especiales
       cleanedValue = value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\-\&\.\(\)]/g, '');
     } else if (name === 'Code') {
-      // Convertir a mayúsculas y permitir solo caracteres válidos
       cleanedValue = value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '');
     } else if (name === 'Barcode') {
-      // Permitir solo números
       cleanedValue = value.replace(/[^0-9]/g, '');
     } else if (['CostPrice', 'Price', 'TaxRate'].includes(name)) {
-      // Validar formato decimal
       if (value === '' || /^\d*\.?\d*$/.test(value)) {
         cleanedValue = value;
       } else {
-        return; // No actualizar si no es un número válido
+        return; 
       }
     } else if (['Current_Stock', 'Minimum_Stock', 'Maximum_Stock'].includes(name)) {
-      // Permitir solo números enteros
       cleanedValue = value.replace(/[^0-9]/g, '');
     }
     
     setFormData(prev => ({ ...prev, [name]: cleanedValue }));
 
-    // Limpiar errores generales
     if (error) setError("");
     if (success) setSuccess("");
 
@@ -314,6 +414,28 @@ export default function ProductForm() {
         newErrors[field] = error;
       }
     });
+    
+    // ** VALIDAR CAMPO PERSONALIZADO SI ESTÁ ACTIVO **
+    if (isCustomCategoryMode) {
+        const rules = validationRules.Name; // Reutilizar reglas de nombre para el campo libre
+        let customError = '';
+        if (rules.required && (!customCategory || customCategory.trim() === '')) {
+          customError = 'La categoría personalizada es requerida';
+        } else if (rules.maxLength && customCategory.length > rules.maxLength) {
+          customError = rules.message.maxLength;
+        } else if (rules.pattern && !rules.pattern.test(customCategory)) {
+          customError = rules.message.pattern;
+        }
+        
+        if (customError) {
+            newErrors.Category = customError;
+        } else {
+            // Si la categoría personalizada es válida, eliminar cualquier error anterior
+            delete newErrors.Category; 
+        }
+    } else if (formData.Category === "") {
+         newErrors.Category = validationRules.Category.message.required;
+    }
     
     // Validaciones de negocio adicionales
     if (formData.CostPrice && formData.Price) {
@@ -364,11 +486,13 @@ export default function ProductForm() {
       Current_Stock: "",
       Minimum_Stock: "",
       Maximum_Stock: "",
-      Unit: units.length > 0 ? units[0] : "pz", // Asegurar un valor por defecto si hay unidades
+      Unit: units.length > 0 ? units[0] : "pz", 
       TaxRate: "16",
       Supplier: "",
       Location: "",
     })
+    setCustomCategory("");
+    setIsCustomCategoryMode(false);
     setError("")
     setSuccess("")
     setErrors({})
@@ -381,34 +505,21 @@ export default function ProductForm() {
       return;
     }
 
-    // ** Lógica para evitar guardado si listas requeridas están vacías
-    if (categories.length === 0) {
-      setError("No se puede guardar: La lista de categorías está vacía. Debes configurar al menos una.");
-      setLoading(false);
-      return;
-    }
-    
-    // Asignar un valor por defecto si 'units' está vacío, aunque el campo no es requerido
-    if (units.length === 0) {
-        // En este caso, 'Unit' tiene un valor por defecto en useState y useEffect ("pz"), pero 
-        // si queremos forzar que el usuario sepa que tiene que configurar unidades:
-        // setError("No se puede guardar: La lista de unidades está vacía. Favor de configurar.");
-        // setLoading(false);
-        // return;
-        // Se mantiene el comportamiento por defecto ("pz") si units está vacío, ya que Unit no es 'required' en validationRules.
-    }
-
-
     setLoading(true)
     setError("")
     setSuccess("")
 
     try {
+      // Determinar el valor final de la categoría
+      const finalCategory = isCustomCategoryMode 
+        ? customCategory.trim() 
+        : formData.Category;
+        
       const productData = {
         Name: formData.Name.trim(),
         Code: formData.Code.trim(),
         Barcode: formData.Barcode.trim(),
-        Category: formData.Category,
+        Category: finalCategory, // Usar la categoría final
         Brand: formData.Brand.trim(),
         Description: formData.Description.trim(),
         CostPrice: formData.CostPrice ? parseFloat(formData.CostPrice) : null,
@@ -500,13 +611,16 @@ export default function ProductForm() {
   const renderFieldStatus = (name) => {
     if (!touched[name]) return null;
     
+    // Si estamos en modo personalizado, el error se muestra en el campo de texto libre
+    if (name === 'Category' && isCustomCategoryMode) return null;
+    
     if (errors[name]) {
       return (
         <Tooltip title={errors[name]}>
           <Warning sx={{ color: "#EF4444", fontSize: 18 }} />
         </Tooltip>
       );
-    } else if (formData[name]) {
+    } else if (formData[name] || (name === 'Category' && isCustomCategoryMode && customCategory)) {
       return <CheckCircle sx={{ color: "#10B981", fontSize: 18 }} />;
     }
     return null;
@@ -514,9 +628,7 @@ export default function ProductForm() {
 
   const isEditMode = Boolean(productToEdit)
   
-  // Mensajes de aviso si las listas están vacías
-  const showCategoryWarning = categories.length === 0 && !isEditMode;
-  const showUnitWarning = units.length === 0 && !isEditMode;
+  // Se eliminan los avisos de listas vacías ya que ahora tienen datos
 
   return (
     <Box
@@ -563,28 +675,6 @@ export default function ProductForm() {
           >
             Estás editando el producto: <strong>{productToEdit.Name}</strong> (Código: {productToEdit.Code})
           </Alert>
-        )}
-        
-        {/* Aviso si no hay categorías configuradas */}
-        {showCategoryWarning && (
-            <Alert 
-                severity="warning" 
-                sx={{ mb: 3 }}
-                icon={<Info />}
-            >
-                No hay categorías disponibles. La creación de productos **requiere** al menos una categoría.
-            </Alert>
-        )}
-
-        {/* Aviso si no hay unidades configuradas */}
-        {showUnitWarning && (
-            <Alert 
-                severity="info" 
-                sx={{ mb: 3 }}
-                icon={<Info />}
-            >
-                No hay unidades de medida disponibles. Se usará el valor por defecto: **pz** (pieza).
-            </Alert>
         )}
 
         {error && (
@@ -1061,16 +1151,10 @@ export default function ProductForm() {
                         }
                       }}
                     >
-                      {/* Lógica para unidades vacías */}
-                      {units.length === 0 ? (
-                        <MenuItem disabled value={formData.Unit}>
-                          {`No hay unidades configuradas. Usando: ${formData.Unit}`}
-                        </MenuItem>
-                      ) : (
-                        units.map(unit => (
-                          <MenuItem key={unit} value={unit}>{unit}</MenuItem>
-                        ))
-                      )}
+                      {/* Unidades por defecto */}
+                      {units.map(unit => (
+                        <MenuItem key={unit} value={unit}>{unit}</MenuItem>
+                      ))}
                     </TextField>
                   </Grid>
 
@@ -1159,19 +1243,22 @@ export default function ProductForm() {
                     </Typography>
                     {renderFieldStatus('Category')}
                   </Box>
+                  
+                  {/* Campo de selección de Categoría (Select/Dropdown) */}
                   <TextField
                     fullWidth
                     select
                     name="Category"
                     value={formData.Category}
-                    onChange={handleChange}
+                    onChange={handleCategoryChange}
                     onBlur={handleBlur}
                     error={!!errors.Category}
                     helperText={errors.Category || getFieldHelperText('Category')}
+                    disabled={isCustomCategoryMode} // Deshabilitar si se está usando el campo libre
                     InputProps={{
                       sx: {
                         bgcolor: "#1E293B",
-                        color: "#FFFFFF",
+                        color: isCustomCategoryMode ? "#9CA3AF" : "#FFFFFF", // Color gris si está deshabilitado
                         "& fieldset": { borderColor: errors.Category ? "#EF4444" : "#334155" },
                         "&:hover fieldset": { borderColor: errors.Category ? "#EF4444" : "#475569" },
                         "&.Mui-focused fieldset": { borderColor: errors.Category ? "#EF4444" : "#3B82F6" }
@@ -1193,20 +1280,46 @@ export default function ProductForm() {
                       }
                     }}
                   >
-                    {/* Lógica para categorías vacías */}
-                    {categories.length === 0 ? (
-                      <MenuItem disabled value="">
-                        No hay opciones (debes configurarlas)
-                      </MenuItem>
-                    ) : (
-                      <>
-                        <MenuItem value="">Seleccionar...</MenuItem>
-                        {categories.map(cat => (
-                          <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                        ))}
-                      </>
-                    )}
+                    <MenuItem value="">Seleccionar...</MenuItem>
+                    {categories.map(cat => (
+                      <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                    ))}
+                    {/* Opción para categoría personalizada */}
+                    <MenuItem value={OTHER_CATEGORY_VALUE} sx={{ fontWeight: 'bold', color: "#F59E0B" }}>
+                       — Otra / Personalizada —
+                    </MenuItem>
                   </TextField>
+                  
+                  {/* Campo de texto libre para categoría personalizada (Solo visible si se selecciona "Otra") */}
+                  {isCustomCategoryMode && (
+                      <Box sx={{ mt: 2 }}>
+                          <Typography variant="body2" sx={{ color: "#D1D5DB", fontWeight: 500, mb: 1 }}>
+                              Ingresa la Categoría Personalizada *
+                          </Typography>
+                          <TextField
+                              fullWidth
+                              name="CustomCategory"
+                              value={customCategory}
+                              onChange={handleCustomCategoryChange}
+                              onBlur={(e) => {
+                                  setTouched(prev => ({ ...prev, Category: true }));
+                                  handleCustomCategoryChange(e); // Trigger validation on blur
+                              }}
+                              error={!!errors.Category}
+                              helperText={errors.Category || `Máx. ${validationRules.Name.maxLength} caracteres • Solo letras y números`}
+                              placeholder="Ej: Papelería Fina"
+                              InputProps={{
+                                sx: {
+                                  bgcolor: "#1E293B",
+                                  color: "#FFFFFF",
+                                  "& fieldset": { borderColor: errors.Category ? "#EF4444" : "#334155" },
+                                  "&:hover fieldset": { borderColor: errors.Category ? "#EF4444" : "#475569" },
+                                  "&.Mui-focused fieldset": { borderColor: errors.Category ? "#EF4444" : "#3B82F6" }
+                                }
+                              }}
+                          />
+                      </Box>
+                  )}
                 </CardContent>
               </Card>
 
@@ -1217,7 +1330,7 @@ export default function ProductForm() {
                   variant="contained"
                   size="large"
                   onClick={() => handleSubmit("save")}
-                  disabled={loading || Object.keys(errors).some(key => errors[key]) || categories.length === 0}
+                  disabled={loading || Object.keys(errors).some(key => errors[key])}
                   startIcon={<Save />}
                   sx={{
                     bgcolor: "#2563EB",
@@ -1243,7 +1356,7 @@ export default function ProductForm() {
                     variant="outlined"
                     size="large"
                     onClick={handleSaveAndNew}
-                    disabled={loading || Object.keys(errors).some(key => errors[key]) || categories.length === 0}
+                    disabled={loading || Object.keys(errors).some(key => errors[key])}
                     startIcon={<Add />}
                     sx={{
                       borderColor: "#10B981",
@@ -1267,22 +1380,7 @@ export default function ProductForm() {
                 )}
               </Box>
               
-              {/* Bloque de información adicional para el usuario sobre las dependencias */}
-              {(categories.length === 0) && (
-                  <Card sx={{ bgcolor: "rgba(245, 158, 11, 0.1)", border: "1px solid #F59E0B", backdropFilter: "blur(20px)" }}>
-                      <CardContent>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                              <Warning sx={{ color: "#F59E0B", fontSize: 20 }} />
-                              <Typography variant="body1" sx={{ color: "#FCD34D", fontWeight: 600 }}>
-                                  Atención
-                              </Typography>
-                          </Box>
-                          <Typography variant="body2" sx={{ color: "#FDE68A", mt: 1 }}>
-                              La creación y edición de productos requiere tener configurada la lista de categorías. Por favor, asegúrate de que tus listas de datos de apoyo (categorías, unidades) se carguen correctamente desde el backend.
-                          </Typography>
-                      </CardContent>
-                  </Card>
-              )}
+              {/* Se elimina el bloque de advertencia de listas vacías ya que ahora tienen datos */}
             </Box>
           </Grid>
         </Grid>
